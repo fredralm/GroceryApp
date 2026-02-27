@@ -20,6 +20,8 @@ export default function RecipesPage() {
   const [ingForm, setIngForm] = useState<IngredientForm>(emptyIng)
   const [toast, setToast] = useState('')
   const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set())
+  const [showCookWarning, setShowCookWarning] = useState(false)
+  const [cookWarningConfirmed, setCookWarningConfirmed] = useState(false)
 
   function persistRecipes(updated: Recipe[]) {
     setRecipes(updated)
@@ -120,8 +122,19 @@ export default function RecipesPage() {
 
   function handleCookIt(recipe: Recipe) {
     const inventory = loadInventory()
+    if (!isRecipeReady(recipe, inventory)) {
+      setCookWarningConfirmed(false)
+      setShowCookWarning(true)
+      return
+    }
+    cookRecipe(recipe)
+  }
+
+  function cookRecipe(recipe: Recipe) {
+    const inventory = loadInventory()
     saveInventory(subtractFromInventory(inventory, recipe.ingredients))
     showToast(`Cooked "${recipe.name}" — inventory updated`)
+    setShowCookWarning(false)
   }
 
   if (selected) {
@@ -194,7 +207,11 @@ export default function RecipesPage() {
             🛒 Add to shopping list
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn" style={{ flex: 1, background: '#ff9800', color: 'white' }} onClick={() => handleCookIt(selected)}>
+            <button
+              className="btn"
+              style={{ flex: 1, background: '#ff9800', color: 'white', opacity: isRecipeReady(selected, inventory) ? 1 : 0.5 }}
+              onClick={() => handleCookIt(selected)}
+            >
               🍳 Cook it
             </button>
             <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => handleDeleteRecipe(selected.id)}>
@@ -254,6 +271,37 @@ export default function RecipesPage() {
               <div className="form-actions">
                 <button className="btn btn-ghost" onClick={() => setShowIngForm(false)}>Cancel</button>
                 <button className="btn btn-primary" onClick={handleAddIngredient}>Add</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showCookWarning && (
+          <div className="modal-overlay" style={{ alignItems: 'center', justifyContent: 'center', padding: '0 16px' }} onClick={() => setShowCookWarning(false)}>
+            <div className="modal-sheet" style={{ borderRadius: 16, width: '100%', margin: 0 }} onClick={e => e.stopPropagation()}>
+              <h2>Missing ingredients</h2>
+              <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                Some ingredients are missing or insufficient in your inventory. You can still cook with what you have.
+              </p>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14 }}>
+                <input
+                  type="checkbox"
+                  checked={cookWarningConfirmed}
+                  onChange={e => setCookWarningConfirmed(e.target.checked)}
+                  style={{ width: 20, height: 20, flexShrink: 0 }}
+                />
+                I'll cook with the ingredients I have in inventory
+              </label>
+              <div className="form-actions">
+                <button className="btn btn-ghost" onClick={() => setShowCookWarning(false)}>Cancel</button>
+                <button
+                  className="btn"
+                  style={{ flex: 1, background: '#ff9800', color: 'white', opacity: cookWarningConfirmed ? 1 : 0.4 }}
+                  disabled={!cookWarningConfirmed}
+                  onClick={() => cookRecipe(selected)}
+                >
+                  Cook it
+                </button>
               </div>
             </div>
           </div>
