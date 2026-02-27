@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { loadInventory, saveInventory } from '../store'
-import { addToInventory } from '../logic'
+import { addToInventory, collectAllIngredientNames } from '../logic'
+import { loadRecipes } from '../store'
+import AutocompleteInput from '../components/AutocompleteInput'
 import type { InventoryItem } from '../types'
 
 type FormState = { name: string; quantity: string; unit: string }
@@ -8,6 +10,7 @@ const emptyForm: FormState = { name: '', quantity: '', unit: '' }
 
 export default function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>(loadInventory)
+  const allNames = collectAllIngredientNames(items, loadRecipes())
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<InventoryItem | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -48,29 +51,31 @@ export default function InventoryPage() {
   }
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div className="page-header">
         <h1>Inventory</h1>
         <button className="btn btn-primary" onClick={openAdd}>+ Add</button>
       </div>
 
-      {items.length === 0 && (
-        <p className="empty-state">No items yet. Add what you have at home.</p>
-      )}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {items.length === 0 && (
+          <p className="empty-state">No items yet. Add what you have at home.</p>
+        )}
 
-      {items.map(item => (
-        <div key={item.id} className="list-item" onClick={() => openEdit(item)} style={{ cursor: 'pointer' }}>
-          <span className="list-item-name">{item.name}</span>
-          <span className="list-item-meta">{item.quantity} {item.unit}</span>
-          <button
-            className="btn btn-danger"
-            style={{ padding: '6px 10px', fontSize: 12 }}
-            onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
-          >
-            Delete
-          </button>
-        </div>
-      ))}
+        {items.map(item => (
+          <div key={item.id} className="list-item" onClick={() => openEdit(item)} style={{ cursor: 'pointer' }}>
+            <span className="list-item-name">{item.name}</span>
+            <span className="list-item-meta">{item.quantity} {item.unit}</span>
+            <button
+              className="btn btn-danger"
+              style={{ padding: '6px 10px', fontSize: 12 }}
+              onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
 
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
@@ -78,9 +83,10 @@ export default function InventoryPage() {
             <h2>{editing ? 'Edit Item' : 'Add Item'}</h2>
             <div className="form-field">
               <label>Name</label>
-              <input
+              <AutocompleteInput
                 value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                onChange={name => setForm(f => ({ ...f, name }))}
+                suggestions={allNames}
                 placeholder="e.g. Pasta"
                 autoFocus
               />
@@ -111,6 +117,6 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

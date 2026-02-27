@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { v4 as uuid } from 'uuid'
 import { loadRecipes, saveRecipes, loadInventory, saveInventory, loadShoppingList, saveShoppingList } from '../store'
-import { subtractFromInventory, addRecipeToShoppingList } from '../logic'
+import { subtractFromInventory, addRecipeToShoppingList, collectAllIngredientNames, checkIngredient, isRecipeReady, addMissingToShoppingList } from '../logic'
+import AutocompleteInput from '../components/AutocompleteInput'
 import type { Recipe, RecipeIngredient } from '../types'
 
 type IngredientForm = { name: string; quantity: string; unit: string }
@@ -9,6 +10,8 @@ const emptyIng: IngredientForm = { name: '', quantity: '', unit: '' }
 
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>(loadRecipes)
+  const inventory = loadInventory()
+  const allNames = collectAllIngredientNames(inventory, recipes)
   const [selected, setSelected] = useState<Recipe | null>(null)
   const [showRecipeForm, setShowRecipeForm] = useState(false)
   const [recipeName, setRecipeName] = useState('')
@@ -16,6 +19,7 @@ export default function RecipesPage() {
   const [showIngForm, setShowIngForm] = useState(false)
   const [ingForm, setIngForm] = useState<IngredientForm>(emptyIng)
   const [toast, setToast] = useState('')
+  const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set())
 
   function persistRecipes(updated: Recipe[]) {
     setRecipes(updated)
@@ -81,8 +85,37 @@ export default function RecipesPage() {
 
   function handleAddToList(recipe: Recipe) {
     const list = loadShoppingList()
-    saveShoppingList(addRecipeToShoppingList(list, recipe.ingredients))
+    if (selectedIngredients.size > 0) {
+      const toAdd = recipe.ingredients.filter(ing => selectedIngredients.has(ing.name))
+      saveShoppingList(addRecipeToShoppingList(list, toAdd))
+      const count = selectedIngredients.size
+      showToast(`Added ${count} ingredient${count > 1 ? 's' : ''} to shopping list`)
+      setSelectedIngredients(new Set())
+      return
+    }
+    if (isRecipeReady(recipe, inventory)) {
+      showToast('All ingredients already in inventory')
+      return
+    }
+    saveShoppingList(addMissingToShoppingList(list, recipe.ingredients, inventory))
     showToast(`"${recipe.name}" added to shopping list`)
+  }
+
+  function toggleIngredient(name: string) {
+    setSelectedIngredients(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  function handleSelectAllIngredients() {
+    if (selectedIngredients.size === selected?.ingredients.length) {
+      setSelectedIngredients(new Set())
+    } else {
+      setSelectedIngredients(new Set(selected?.ingredients.map(i => i.name) ?? []))
+    }
   }
 
   function handleCookIt(recipe: Recipe) {
@@ -93,9 +126,9 @@ export default function RecipesPage() {
 
   if (selected) {
     return (
-      <>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         <div className="page-header">
-          <button className="btn btn-ghost" onClick={() => setSelected(null)}>← Back</button>
+          <button className="btn btn-ghost" onClick={() => { setSelected(null); setSelectedIngredients(new Set()) }}>← Back</button>
           <h1 style={{ fontSize: 17 }}>{selected.name}</h1>
           <button className="btn btn-ghost" onClick={() => {
             setEditingRecipe(selected)
@@ -104,40 +137,70 @@ export default function RecipesPage() {
           }}>Edit</button>
         </div>
 
-        <div style={{ padding: '8px 0' }}>
-          {selected.ingredients.map(ing => (
-            <div key={ing.name} className="list-item">
-              <span className="list-item-name">{ing.name}</span>
-              <span className="list-item-meta">{ing.quantity} {ing.unit}</span>
-              <button
-                className="btn btn-danger"
-                style={{ padding: '6px 10px', fontSize: 12 }}
-                onClick={() => handleDeleteIngredient(ing.name)}
-              >
-                Remove
-              </button>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {selected.ingredients.length > 0 && (
+            <div style={{ padding: '4px 16px 4px 12px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)' }}>
+              <input
+                type="checkbox"
+                checked={selectedIngredients.size === selected.ingredients.length}
+                ref={el => {
+                  if (el) el.indeterminate = selectedIngredients.size > 0 && selectedIngredients.size < selected.ingredients.length
+                }}
+                onChange={handleSelectAllIngredients}
+                style={{ width: 20, height: 20, cursor: 'pointer', flexShrink: 0 }}
+              />
+              <span style={{ fontSize: 13, color: '#666' }}>Select all</span>
             </div>
-          ))}
+          )}
+          {selected.ingredients.map(ing => {
+            const check = checkIngredient(ing, inventory)
+            const dotColor = check.status === 'enough' ? '#4caf50' : check.status === 'partial' ? '#ff9800' : '#ef5350'
+            return (
+              <div key={ing.name} className="list-item">
+                <input
+                  type="checkbox"
+                  checked={selectedIngredients.has(ing.name)}
+                  onChange={() => toggleIngredient(ing.name)}
+                  style={{ width: 20, height: 20, cursor: 'pointer', flexShrink: 0 }}
+                />
+                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                <span className="list-item-name">{ing.name}</span>
+                <span className="list-item-meta">
+                  {ing.quantity} {ing.unit}
+                  <span style={{ color: '#999', marginLeft: 4, fontSize: 12 }}>({check.inventoryQty} {check.inventoryUnit} in inventory)</span>
+                </span>
+                <button
+                  className="btn btn-danger"
+                  style={{ padding: '6px 10px', fontSize: 12 }}
+                  onClick={() => handleDeleteIngredient(ing.name)}
+                >
+                  Remove
+                </button>
+              </div>
+            )
+          })}
 
           {selected.ingredients.length === 0 && (
             <p className="empty-state">No ingredients yet.</p>
           )}
+
+          <div style={{ padding: '12px 16px' }}>
+            <button className="btn btn-ghost" onClick={() => setShowIngForm(true)}>+ Add ingredient</button>
+          </div>
         </div>
 
-        <div style={{ padding: '12px 16px' }}>
-          <button className="btn btn-ghost" onClick={() => setShowIngForm(true)}>+ Add ingredient</button>
-        </div>
-
-        <div style={{ padding: '16px', display: 'flex', gap: 8, flexDirection: 'column' }}>
+        <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', gap: 8, flexDirection: 'column' }}>
           <button className="btn btn-primary" onClick={() => handleAddToList(selected)}>
             🛒 Add to shopping list
           </button>
-          <button className="btn" style={{ background: '#ff9800', color: 'white' }} onClick={() => handleCookIt(selected)}>
-            🍳 Cook it
-          </button>
-          <button className="btn btn-danger" onClick={() => handleDeleteRecipe(selected.id)}>
-            Delete recipe
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" style={{ flex: 1, background: '#ff9800', color: 'white' }} onClick={() => handleCookIt(selected)}>
+              🍳 Cook it
+            </button>
+            <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => handleDeleteRecipe(selected.id)}>
+              Delete recipe
+            </button>
+          </div>
         </div>
 
         {showRecipeForm && (
@@ -162,9 +225,10 @@ export default function RecipesPage() {
               <h2>Add Ingredient</h2>
               <div className="form-field">
                 <label>Name</label>
-                <input
+                <AutocompleteInput
                   value={ingForm.name}
-                  onChange={e => setIngForm(f => ({ ...f, name: e.target.value }))}
+                  onChange={name => setIngForm(f => ({ ...f, name }))}
+                  suggestions={allNames}
                   placeholder="e.g. Ground beef"
                   autoFocus
                 />
@@ -204,27 +268,35 @@ export default function RecipesPage() {
             {toast}
           </div>
         )}
-      </>
+      </div>
     )
   }
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div className="page-header">
         <h1>Recipes</h1>
         <button className="btn btn-primary" onClick={openAddRecipe}>+ Add</button>
       </div>
 
-      {recipes.length === 0 && (
-        <p className="empty-state">No recipes yet. Add your first recipe.</p>
-      )}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {recipes.length === 0 && (
+          <p className="empty-state">No recipes yet. Add your first recipe.</p>
+        )}
 
-      {recipes.map(recipe => (
-        <div key={recipe.id} className="list-item" onClick={() => setSelected(recipe)} style={{ cursor: 'pointer' }}>
-          <span className="list-item-name">{recipe.name}</span>
-          <span className="list-item-meta">{recipe.ingredients.length} ingredients →</span>
-        </div>
-      ))}
+        {recipes.map(recipe => (
+          <div key={recipe.id} className="list-item" onClick={() => setSelected(recipe)} style={{ cursor: 'pointer' }}>
+            <span className="list-item-name">{recipe.name}</span>
+            <span className="list-item-meta">
+              {recipe.ingredients.length} ingredients
+              {isRecipeReady(recipe, inventory) && (
+                <span style={{ color: '#4caf50', marginLeft: 6 }}>✓</span>
+              )}
+              {' →'}
+            </span>
+          </div>
+        ))}
+      </div>
 
       {showRecipeForm && (
         <div className="modal-overlay" onClick={() => setShowRecipeForm(false)}>
@@ -246,6 +318,6 @@ export default function RecipesPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

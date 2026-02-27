@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   convertTo, addToInventory, subtractFromInventory, addRecipeToShoppingList,
-  selectAllItems, removeSelectedItems,
+  suggestIngredients, collectAllIngredientNames, selectAllItems, removeSelectedItems,
+  checkIngredient, isRecipeReady, addMissingToShoppingList,
 } from './logic'
-import type { InventoryItem, RecipeIngredient, ShoppingListItem } from './types'
+import type { InventoryItem, Recipe, RecipeIngredient, ShoppingListItem } from './types'
 
 describe('convertTo', () => {
   it('converts kg to g', () => {
@@ -179,6 +180,66 @@ describe('addRecipeToShoppingList', () => {
   })
 })
 
+describe('suggestIngredients', () => {
+  const names = ['Lettmelk', 'Gulrot', 'Gulerøtter', 'Pasta', 'Parmesan']
+
+  it('matches substring anywhere in the name (case-insensitive)', () => {
+    expect(suggestIngredients('melk', names)).toEqual(['Lettmelk'])
+  })
+
+  it('matches prefix', () => {
+    const result = suggestIngredients('Gul', names)
+    expect(result).toContain('Gulrot')
+    expect(result).toContain('Gulerøtter')
+  })
+
+  it('is case-insensitive', () => {
+    expect(suggestIngredients('PASTA', names)).toEqual(['Pasta'])
+  })
+
+  it('returns empty array for empty query', () => {
+    expect(suggestIngredients('', names)).toEqual([])
+  })
+
+  it('returns empty array when no match found', () => {
+    expect(suggestIngredients('xyz', names)).toEqual([])
+  })
+
+  it('does not suggest exact match (already typed)', () => {
+    expect(suggestIngredients('Pasta', names)).toEqual([])
+  })
+})
+
+describe('collectAllIngredientNames', () => {
+  it('collects names from inventory and recipes without duplicates', () => {
+    const inventory: InventoryItem[] = [
+      { id: '1', name: 'Pasta', quantity: 500, unit: 'g' },
+      { id: '2', name: 'Milk', quantity: 1, unit: 'l' },
+    ]
+    const recipes: Recipe[] = [
+      { id: 'r1', name: 'Bolognese', ingredients: [
+        { name: 'Pasta', quantity: 400, unit: 'g' },
+        { name: 'Ground beef', quantity: 300, unit: 'g' },
+      ]},
+    ]
+    const result = collectAllIngredientNames(inventory, recipes)
+    expect(result).toContain('Pasta')
+    expect(result).toContain('Milk')
+    expect(result).toContain('Ground beef')
+    // No duplicates
+    expect(result.filter(n => n === 'Pasta')).toHaveLength(1)
+  })
+
+  it('returns sorted list', () => {
+    const inventory: InventoryItem[] = [
+      { id: '1', name: 'Pasta', quantity: 500, unit: 'g' },
+      { id: '2', name: 'Apple', quantity: 3, unit: 'pcs' },
+    ]
+    const result = collectAllIngredientNames(inventory, [])
+    expect(result).toEqual(['Apple', 'Pasta'])
+  })
+})
+
 // --- selectAllItems ---
 
 describe('selectAllItems', () => {
@@ -233,5 +294,171 @@ describe('removeSelectedItems', () => {
     const none = items.map(i => ({ ...i, checked: false }))
     const result = removeSelectedItems(none)
     expect(result).toHaveLength(3)
+  })
+})
+
+describe('checkIngredient', () => {
+  const inventory: InventoryItem[] = [
+    { id: '1', name: 'Pasta', quantity: 500, unit: 'g' },
+    { id: '2', name: 'Milk', quantity: 0.5, unit: 'l' },
+  ]
+
+  it('returns none when ingredient not in inventory', () => {
+    const result = checkIngredient({ name: 'Eggs', quantity: 2, unit: 'stk' }, inventory)
+    expect(result).toEqual({ status: 'none', inventoryQty: 0, inventoryUnit: 'stk' })
+  })
+
+  it('returns enough when inventory has exactly the needed amount', () => {
+    const result = checkIngredient({ name: 'Pasta', quantity: 500, unit: 'g' }, inventory)
+    expect(result.status).toBe('enough')
+    expect(result.inventoryQty).toBe(500)
+    expect(result.inventoryUnit).toBe('g')
+  })
+
+  it('returns enough when inventory has more than needed', () => {
+    const result = checkIngredient({ name: 'Pasta', quantity: 200, unit: 'g' }, inventory)
+    expect(result.status).toBe('enough')
+    expect(result.inventoryQty).toBe(500)
+    expect(result.inventoryUnit).toBe('g')
+  })
+
+  it('returns partial when inventory has some but not enough', () => {
+    const result = checkIngredient({ name: 'Pasta', quantity: 800, unit: 'g' }, inventory)
+    expect(result.status).toBe('partial')
+    expect(result.inventoryQty).toBe(500)
+    expect(result.inventoryUnit).toBe('g')
+  })
+
+  it('returns enough with unit conversion (recipe g, inventory kg)', () => {
+    const inv = [{ id: '1', name: 'Pasta', quantity: 1, unit: 'kg' }]
+    const result = checkIngredient({ name: 'Pasta', quantity: 500, unit: 'g' }, inv)
+    expect(result.status).toBe('enough')
+  })
+
+  it('returns partial with unit conversion when shortfall exists', () => {
+    const inv = [{ id: '1', name: 'Pasta', quantity: 0.3, unit: 'kg' }]
+    const result = checkIngredient({ name: 'Pasta', quantity: 500, unit: 'g' }, inv)
+    expect(result.status).toBe('partial')
+    expect(result.inventoryQty).toBe(0.3)
+    expect(result.inventoryUnit).toBe('kg')
+  })
+
+  it('returns none when units are incompatible', () => {
+    const inv = [{ id: '1', name: 'Milk', quantity: 1, unit: 'l' }]
+    const result = checkIngredient({ name: 'Milk', quantity: 500, unit: 'g' }, inv)
+    expect(result.status).toBe('none')
+  })
+
+  it('matches ingredient name case-insensitively', () => {
+    const inv = [{ id: '1', name: 'PASTA', quantity: 600, unit: 'g' }]
+    const result = checkIngredient({ name: 'pasta', quantity: 400, unit: 'g' }, inv)
+    expect(result.status).toBe('enough')
+  })
+})
+
+describe('isRecipeReady', () => {
+  const inventory: InventoryItem[] = [
+    { id: '1', name: 'Pasta', quantity: 500, unit: 'g' },
+    { id: '2', name: 'Milk', quantity: 1, unit: 'l' },
+  ]
+
+  it('returns true when all ingredients are covered', () => {
+    const recipe: Recipe = {
+      id: 'r1', name: 'Pasta', ingredients: [
+        { name: 'Pasta', quantity: 400, unit: 'g' },
+        { name: 'Milk', quantity: 0.5, unit: 'l' },
+      ]
+    }
+    expect(isRecipeReady(recipe, inventory)).toBe(true)
+  })
+
+  it('returns false when any ingredient is partial', () => {
+    const recipe: Recipe = {
+      id: 'r1', name: 'Pasta', ingredients: [
+        { name: 'Pasta', quantity: 600, unit: 'g' },
+        { name: 'Milk', quantity: 0.5, unit: 'l' },
+      ]
+    }
+    expect(isRecipeReady(recipe, inventory)).toBe(false)
+  })
+
+  it('returns false when any ingredient is missing', () => {
+    const recipe: Recipe = {
+      id: 'r1', name: 'Pasta', ingredients: [
+        { name: 'Pasta', quantity: 400, unit: 'g' },
+        { name: 'Eggs', quantity: 2, unit: 'stk' },
+      ]
+    }
+    expect(isRecipeReady(recipe, inventory)).toBe(false)
+  })
+
+  it('returns true for recipe with no ingredients', () => {
+    const recipe: Recipe = { id: 'r1', name: 'Empty', ingredients: [] }
+    expect(isRecipeReady(recipe, inventory)).toBe(true)
+  })
+})
+
+describe('addMissingToShoppingList', () => {
+  const inventory: InventoryItem[] = [
+    { id: '1', name: 'Pasta', quantity: 500, unit: 'g' },
+  ]
+
+  it('skips ingredients already covered by inventory', () => {
+    const result = addMissingToShoppingList(
+      [],
+      [{ name: 'Pasta', quantity: 400, unit: 'g' }],
+      inventory
+    )
+    expect(result).toHaveLength(0)
+  })
+
+  it('adds full amount for ingredient not in inventory', () => {
+    const result = addMissingToShoppingList(
+      [],
+      [{ name: 'Eggs', quantity: 3, unit: 'stk' }],
+      inventory
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('Eggs')
+    expect(result[0].quantity).toBe(3)
+    expect(result[0].unit).toBe('stk')
+  })
+
+  it('adds shortfall for partial ingredient (same unit)', () => {
+    const result = addMissingToShoppingList(
+      [],
+      [{ name: 'Pasta', quantity: 800, unit: 'g' }],
+      inventory
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('Pasta')
+    expect(result[0].quantity).toBe(300)
+    expect(result[0].unit).toBe('g')
+  })
+
+  it('adds shortfall for partial ingredient with unit conversion', () => {
+    // 0.5 kg inventory = 500g, recipe needs 700g → shortfall 200g
+    const inv = [{ id: '1', name: 'Pasta', quantity: 0.5, unit: 'kg' }]
+    const result = addMissingToShoppingList(
+      [],
+      [{ name: 'Pasta', quantity: 700, unit: 'g' }],
+      inv
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].quantity).toBeCloseTo(200)
+    expect(result[0].unit).toBe('g')
+  })
+
+  it('returns existing list unchanged when all ingredients are covered', () => {
+    const existing: ShoppingListItem[] = [
+      { id: 'x1', name: 'Butter', quantity: 100, unit: 'g', checked: false }
+    ]
+    const result = addMissingToShoppingList(
+      existing,
+      [{ name: 'Pasta', quantity: 300, unit: 'g' }],
+      inventory
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('Butter')
   })
 })

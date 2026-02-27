@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import type { InventoryItem, RecipeIngredient, ShoppingListItem } from './types'
+import type { InventoryItem, Recipe, RecipeIngredient, ShoppingListItem } from './types'
 
 // Conversion table: [fromUnit, toUnit] -> multiplier
 const CONVERSIONS: Record<string, number> = {
@@ -80,6 +80,23 @@ export function addRecipeToShoppingList(
   return result
 }
 
+export function suggestIngredients(query: string, allNames: string[]): string[] {
+  const q = query.trim()
+  if (!q) return []
+  const lower = q.toLowerCase()
+  return allNames.filter(name =>
+    name !== q &&
+    name.toLowerCase().includes(lower)
+  )
+}
+
+export function collectAllIngredientNames(inventory: InventoryItem[], recipes: Recipe[]): string[] {
+  const names = new Set<string>()
+  inventory.forEach(item => names.add(item.name))
+  recipes.forEach(recipe => recipe.ingredients.forEach(ing => names.add(ing.name)))
+  return Array.from(names).sort()
+}
+
 export function selectAllItems(items: ShoppingListItem[]): ShoppingListItem[] {
   const allChecked = items.every(i => i.checked)
   return items.map(i => ({ ...i, checked: !allChecked }))
@@ -87,4 +104,48 @@ export function selectAllItems(items: ShoppingListItem[]): ShoppingListItem[] {
 
 export function removeSelectedItems(items: ShoppingListItem[]): ShoppingListItem[] {
   return items.filter(i => !i.checked)
+}
+
+export function checkIngredient(
+  ingredient: RecipeIngredient,
+  inventory: InventoryItem[]
+): { status: 'enough' | 'partial' | 'none'; inventoryQty: number; inventoryUnit: string } {
+  const match = inventory.find(
+    item => item.name.toLowerCase() === ingredient.name.toLowerCase()
+  )
+  if (!match) {
+    return { status: 'none', inventoryQty: 0, inventoryUnit: ingredient.unit }
+  }
+  const converted = convertTo(ingredient.quantity, ingredient.unit, match.unit)
+  if (converted === null) {
+    return { status: 'none', inventoryQty: match.quantity, inventoryUnit: match.unit }
+  }
+  const status = match.quantity >= converted ? 'enough' : 'partial'
+  return { status, inventoryQty: match.quantity, inventoryUnit: match.unit }
+}
+
+export function isRecipeReady(recipe: Recipe, inventory: InventoryItem[]): boolean {
+  return recipe.ingredients.every(
+    ing => checkIngredient(ing, inventory).status === 'enough'
+  )
+}
+
+export function addMissingToShoppingList(
+  list: ShoppingListItem[],
+  ingredients: RecipeIngredient[],
+  inventory: InventoryItem[]
+): ShoppingListItem[] {
+  const toAdd: RecipeIngredient[] = []
+  for (const ing of ingredients) {
+    const { status, inventoryQty, inventoryUnit } = checkIngredient(ing, inventory)
+    if (status === 'enough') continue
+    if (status === 'none') {
+      toAdd.push(ing)
+    } else {
+      const inventoryInRecipeUnit = convertTo(inventoryQty, inventoryUnit, ing.unit) ?? inventoryQty
+      const shortfall = ing.quantity - inventoryInRecipeUnit
+      if (shortfall > 0) toAdd.push({ ...ing, quantity: shortfall })
+    }
+  }
+  return addRecipeToShoppingList(list, toAdd)
 }
