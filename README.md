@@ -1,73 +1,51 @@
-# React + TypeScript + Vite
+# Grocery App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A Progressive Web App for managing groceries. Track what you have at home, store your recipes, and build smart shopping lists that skip ingredients already in your inventory.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+**Inventory** — Add items with quantities and units (e.g. 500 g pasta, 1 l milk). Supports unit conversion when merging items (kg ↔ g, l ↔ dl ↔ cl).
 
-## React Compiler
+**Recipes** — Create recipes with ingredients. Each ingredient shows a colour-coded availability indicator based on your current inventory (green = enough, orange = partial, red = none). "Cook It" deducts used ingredients from inventory.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**Shopping list** — Add items manually or pull missing ingredients straight from a recipe. "Buy selected" moves checked items into inventory. Supports select-all and bulk remove.
 
-## Expanding the ESLint configuration
+## Tech stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- React 19 + TypeScript
+- Vite + vite-plugin-pwa (installable, works offline)
+- React Router for client-side navigation
+- localStorage for persistence (no backend)
+- Vitest for unit tests
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Getting started
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev       # http://localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+```bash
+npm run build     # type-check + production bundle
+npm run preview   # serve the production build locally
+npx vitest run    # run tests
+```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+**Deploying** — `npm run build` outputs a static site to `dist/`. Upload that folder to any static host (Netlify, Vercel, GitHub Pages, etc.). No server-side configuration needed; the app runs entirely in the browser.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Project structure
+
+```
+src/
+├── types.ts          # Core types (InventoryItem, Recipe, ShoppingListItem, …)
+├── store.ts          # localStorage read/write helpers
+├── logic.ts          # Pure business logic (unit conversion, inventory checks, …)
+├── logic.test.ts     # Unit tests
+├── components/
+│   ├── AutocompleteInput.tsx
+│   └── BottomNav.tsx
+└── pages/
+    ├── InventoryPage.tsx
+    ├── RecipesPage.tsx
+    └── ShoppingListPage.tsx
 ```
