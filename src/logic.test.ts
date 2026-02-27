@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  addToInventory,
-  subtractFromInventory,
-  addRecipeToShoppingList,
-  convertTo,
+  convertTo, addToInventory, subtractFromInventory, addRecipeToShoppingList,
+  selectAllItems, removeSelectedItems,
 } from './logic'
 import type { InventoryItem, RecipeIngredient, ShoppingListItem } from './types'
 
@@ -178,5 +176,62 @@ describe('addRecipeToShoppingList', () => {
     expect(result).toHaveLength(1)
     expect(result[0].quantity).toBe(1500)
     expect(result[0].unit).toBe('g')
+  })
+})
+
+// --- selectAllItems ---
+
+describe('selectAllItems', () => {
+  const items: ShoppingListItem[] = [
+    { id: '1', name: 'Milk', quantity: 1, unit: 'l', checked: false },
+    { id: '2', name: 'Eggs', quantity: 6, unit: 'stk', checked: false },
+    { id: '3', name: 'Bread', quantity: 1, unit: 'stk', checked: false },
+  ]
+
+  it('returns empty array for empty input', () => {
+    expect(selectAllItems([])).toEqual([])
+  })
+
+  it('selects all when none are checked', () => {
+    const result = selectAllItems(items)
+    expect(result.every(i => i.checked)).toBe(true)
+  })
+
+  it('selects all when some are checked', () => {
+    const partial = items.map((i, idx) => ({ ...i, checked: idx === 0 }))
+    const result = selectAllItems(partial)
+    expect(result.every(i => i.checked)).toBe(true)
+    expect(result).toHaveLength(3)
+  })
+
+  it('deselects all when all are checked', () => {
+    const allChecked = items.map(i => ({ ...i, checked: true }))
+    const result = selectAllItems(allChecked)
+    expect(result.every(i => i.checked)).toBe(false)
+  })
+})
+
+// --- removeSelectedItems ---
+
+describe('removeSelectedItems', () => {
+  const items: ShoppingListItem[] = [
+    { id: '1', name: 'Milk', quantity: 1, unit: 'l', checked: true },
+    { id: '2', name: 'Eggs', quantity: 6, unit: 'stk', checked: false },
+    { id: '3', name: 'Bread', quantity: 1, unit: 'stk', checked: true },
+  ]
+
+  it('returns empty array for empty input', () => {
+    expect(removeSelectedItems([])).toEqual([])
+  })
+
+  it('removes only checked items', () => {
+    const result = removeSelectedItems(items)
+    expect(result.map(i => i.id)).toEqual(['2'])
+  })
+
+  it('returns all items unchanged when none are checked', () => {
+    const none = items.map(i => ({ ...i, checked: false }))
+    const result = removeSelectedItems(none)
+    expect(result).toHaveLength(3)
   })
 })

@@ -79,3 +79,12 @@ export function addRecipeToShoppingList(
   }
   return result
 }
+
+export function selectAllItems(items: ShoppingListItem[]): ShoppingListItem[] {
+  const allChecked = items.every(i => i.checked)
+  return items.map(i => ({ ...i, checked: !allChecked }))
+}
+
+export function removeSelectedItems(items: ShoppingListItem[]): ShoppingListItem[] {
+  return items.filter(i => !i.checked)
+}
