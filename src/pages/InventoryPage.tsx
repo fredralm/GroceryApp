@@ -4,11 +4,13 @@ import { addToInventory, collectAllIngredientNames } from '../logic'
 import { loadRecipes } from '../store'
 import AutocompleteInput from '../components/AutocompleteInput'
 import type { InventoryItem } from '../types'
+import { useTranslation } from '../i18n'
 
 type FormState = { name: string; quantity: string; unit: string }
 const emptyForm: FormState = { name: '', quantity: '', unit: '' }
 
 export default function InventoryPage() {
+  const { t } = useTranslation()
   const [items, setItems] = useState<InventoryItem[]>(loadInventory)
   const allNames = collectAllIngredientNames(items, loadRecipes())
   const [showForm, setShowForm] = useState(false)
@@ -71,7 +73,7 @@ export default function InventoryPage() {
               style={{ padding: '6px 10px', fontSize: 12 }}
               onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
             >
-              Delete
+              {t('inventory.remove')}
             </button>
           </div>
         ))}
