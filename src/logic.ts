@@ -11,6 +11,12 @@ const CONVERSIONS: Record<string, number> = {
   'dl->cl': 10,
   'l->cl': 100,
   'cl->l': 0.01,
+  'ml->dl': 0.01,
+  'dl->ml': 100,
+  'ml->l': 0.001,
+  'l->ml': 1000,
+  'ml->cl': 0.1,
+  'cl->ml': 10,
 }
 
 export function convertTo(quantity: number, fromUnit: string, toUnit: string): number | null {

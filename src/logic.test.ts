@@ -34,6 +34,24 @@ describe('convertTo', () => {
   it('is case-insensitive', () => {
     expect(convertTo(1, 'KG', 'G')).toBe(1000)
   })
+  it('converts ml to dl', () => {
+    expect(convertTo(100, 'ml', 'dl')).toBeCloseTo(1)
+  })
+  it('converts dl to ml', () => {
+    expect(convertTo(1, 'dl', 'ml')).toBe(100)
+  })
+  it('converts ml to l', () => {
+    expect(convertTo(1000, 'ml', 'l')).toBeCloseTo(1)
+  })
+  it('converts l to ml', () => {
+    expect(convertTo(1, 'l', 'ml')).toBe(1000)
+  })
+  it('converts ml to cl', () => {
+    expect(convertTo(10, 'ml', 'cl')).toBeCloseTo(1)
+  })
+  it('converts cl to ml', () => {
+    expect(convertTo(1, 'cl', 'ml')).toBe(10)
+  })
 })
 
 describe('addToInventory', () => {
