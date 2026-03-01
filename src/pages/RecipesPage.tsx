@@ -1,24 +1,30 @@
 import { useState } from 'react'
 import { v4 as uuid } from 'uuid'
 import { loadRecipes, saveRecipes, loadInventory, saveInventory, loadShoppingList, saveShoppingList } from '../store'
-import { subtractFromInventory, addRecipeToShoppingList, collectAllIngredientNames, checkIngredient, isRecipeReady, addMissingToShoppingList, countMissing } from '../logic'
+import { subtractFromInventory, addRecipeToShoppingList, collectAllIngredientNames, checkIngredient, isRecipeReady, addMissingToShoppingList, countMissing, expandIngredients, hasCircularRef } from '../logic'
 import AutocompleteInput from '../components/AutocompleteInput'
-import type { Recipe, RecipeIngredient } from '../types'
+import type { Recipe, RecipeIngredient, SubRecipeRef } from '../types'
 
 type IngredientForm = { name: string; quantity: string; unit: string }
 const emptyIng: IngredientForm = { name: '', quantity: '', unit: '' }
 
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>(loadRecipes)
+  const [selected, setSelected] = useState<Recipe | null>(null)
   const inventory = loadInventory()
   const allNames = collectAllIngredientNames(inventory, recipes)
-  const [selected, setSelected] = useState<Recipe | null>(null)
+  const otherRecipeNames = recipes
+    .filter(r => r.id !== selected?.id)
+    .map(r => r.name)
+  const allSuggestions = [...new Set([...allNames, ...otherRecipeNames])].sort()
   const [showRecipeForm, setShowRecipeForm] = useState(false)
   const [recipeName, setRecipeName] = useState('')
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
   const [showIngForm, setShowIngForm] = useState(false)
   const [ingForm, setIngForm] = useState<IngredientForm>(emptyIng)
   const [editingIng, setEditingIng] = useState<RecipeIngredient | null>(null)
+  const [isSubRecipeMode, setIsSubRecipeMode] = useState(false)
+  const [editingSubRef, setEditingSubRef] = useState<SubRecipeRef | null>(null)
   const [toast, setToast] = useState('')
   const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set())
   const [showCookWarning, setShowCookWarning] = useState(false)
@@ -115,21 +121,88 @@ export default function RecipesPage() {
     setShowIngForm(false)
   }
 
+  function handleIngNameChange(name: string) {
+    setIngForm(f => ({ ...f, name }))
+    const matched = recipes.find(
+      r => r.id !== selected?.id && r.name.toLowerCase() === name.toLowerCase()
+    )
+    setIsSubRecipeMode(!!matched)
+  }
+
+  function handleSaveIngForm() {
+    if (!selected) return
+
+    // Editing an existing sub-recipe multiplier
+    if (editingSubRef) {
+      const multiplier = parseFloat(ingForm.quantity)
+      if (isNaN(multiplier) || multiplier <= 0) return
+      const updated = recipes.map(r =>
+        r.id === selected.id
+          ? { ...r, subRecipes: (r.subRecipes ?? []).map(s =>
+              s.recipeId === editingSubRef.recipeId ? { ...s, multiplier } : s
+            )}
+          : r
+      )
+      persistRecipes(updated)
+      setSelected(updated.find(r => r.id === selected.id) ?? null)
+      setEditingSubRef(null)
+      setIsSubRecipeMode(false)
+      setIngForm(emptyIng)
+      setShowIngForm(false)
+      return
+    }
+
+    // Adding/editing a sub-recipe reference
+    if (isSubRecipeMode) {
+      const subRecipe = recipes.find(
+        r => r.id !== selected.id && r.name.toLowerCase() === ingForm.name.toLowerCase()
+      )
+      if (!subRecipe) return
+      const multiplier = parseFloat(ingForm.quantity)
+      if (isNaN(multiplier) || multiplier <= 0) return
+      if (hasCircularRef(selected.id, subRecipe.id, recipes)) {
+        showToast('Cannot add: would create a circular reference')
+        return
+      }
+      const updated = recipes.map(r =>
+        r.id === selected.id
+          ? { ...r, subRecipes: [...(r.subRecipes ?? []), { recipeId: subRecipe.id, multiplier }] }
+          : r
+      )
+      persistRecipes(updated)
+      setSelected(updated.find(r => r.id === selected.id) ?? null)
+      setIngForm(emptyIng)
+      setIsSubRecipeMode(false)
+      setShowIngForm(false)
+      return
+    }
+
+    // Editing a regular ingredient
+    if (editingIng) {
+      handleEditIngredient()
+      return
+    }
+
+    // Adding a regular ingredient
+    handleAddIngredient()
+  }
+
   function handleAddToList(recipe: Recipe) {
     const list = loadShoppingList()
+    const expanded = expandIngredients(recipe, recipes)
     if (selectedIngredients.size > 0) {
-      const toAdd = recipe.ingredients.filter(ing => selectedIngredients.has(ing.name))
+      const toAdd = expanded.filter(ing => selectedIngredients.has(ing.name))
       saveShoppingList(addRecipeToShoppingList(list, toAdd))
       const count = selectedIngredients.size
       showToast(`Added ${count} ingredient${count > 1 ? 's' : ''} to shopping list`)
       setSelectedIngredients(new Set())
       return
     }
-    if (isRecipeReady(recipe, inventory)) {
+    if (isRecipeReady(recipe, inventory, recipes)) {
       showToast('All ingredients already in inventory')
       return
     }
-    saveShoppingList(addMissingToShoppingList(list, recipe.ingredients, inventory))
+    saveShoppingList(addMissingToShoppingList(list, expanded, inventory))
     showToast(`"${recipe.name}" added to shopping list`)
   }
 
@@ -152,7 +225,7 @@ export default function RecipesPage() {
 
   function handleCookIt(recipe: Recipe) {
     const inventory = loadInventory()
-    if (!isRecipeReady(recipe, inventory)) {
+    if (!isRecipeReady(recipe, inventory, recipes)) {
       setCookWarningConfirmed(false)
       setShowCookWarning(true)
       return
@@ -161,8 +234,9 @@ export default function RecipesPage() {
   }
 
   function cookRecipe(recipe: Recipe) {
-    const inventory = loadInventory()
-    saveInventory(subtractFromInventory(inventory, recipe.ingredients))
+    const inv = loadInventory()
+    const expanded = expandIngredients(recipe, recipes)
+    saveInventory(subtractFromInventory(inv, expanded))
     showToast(`Cooked "${recipe.name}" — inventory updated`)
     setShowCookWarning(false)
   }
@@ -223,12 +297,65 @@ export default function RecipesPage() {
             )
           })}
 
-          {selected.ingredients.length === 0 && (
+          {(selected.subRecipes ?? []).map(sub => {
+            const subRecipe = recipes.find(r => r.id === sub.recipeId)
+            if (!subRecipe) return null
+            const subMissing = countMissing(subRecipe, inventory, recipes)
+            return (
+              <div
+                key={sub.recipeId}
+                className="list-item"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  setEditingSubRef(sub)
+                  setEditingIng(null)
+                  setIngForm({ name: subRecipe.name, quantity: String(sub.multiplier), unit: '' })
+                  setIsSubRecipeMode(true)
+                  setShowIngForm(true)
+                }}
+              >
+                <span style={{ fontSize: 16, flexShrink: 0 }}>📋</span>
+                <span className="list-item-name" style={{ fontStyle: 'italic' }}>
+                  {sub.multiplier}× {subRecipe.name}
+                </span>
+                <span className="list-item-meta">
+                  {subMissing === 0
+                    ? <span style={{ color: '#4caf50' }}>✓</span>
+                    : <span style={{ color: '#ef5350' }}>{subMissing} missing</span>
+                  }
+                </span>
+                <button
+                  className="btn btn-danger"
+                  style={{ padding: '6px 10px', fontSize: 12 }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    const updated = recipes.map(r =>
+                      r.id === selected.id
+                        ? { ...r, subRecipes: (r.subRecipes ?? []).filter(s => s.recipeId !== sub.recipeId) }
+                        : r
+                    )
+                    persistRecipes(updated)
+                    setSelected(updated.find(r => r.id === selected.id) ?? null)
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            )
+          })}
+
+          {selected.ingredients.length === 0 && (selected.subRecipes ?? []).length === 0 && (
             <p className="empty-state">No ingredients yet.</p>
           )}
 
           <div style={{ padding: '12px 16px' }}>
-            <button className="btn btn-ghost" onClick={() => { setEditingIng(null); setIngForm(emptyIng); setShowIngForm(true) }}>+ Add ingredient</button>
+            <button className="btn btn-ghost" onClick={() => {
+              setEditingIng(null)
+              setEditingSubRef(null)
+              setIsSubRecipeMode(false)
+              setIngForm(emptyIng)
+              setShowIngForm(true)
+            }}>+ Add ingredient</button>
           </div>
         </div>
 
@@ -239,7 +366,7 @@ export default function RecipesPage() {
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               className="btn"
-              style={{ flex: 1, background: '#ff9800', color: 'white', opacity: isRecipeReady(selected, inventory) ? 1 : 0.5 }}
+              style={{ flex: 1, background: '#ff9800', color: 'white', opacity: isRecipeReady(selected, inventory, recipes) ? 1 : 0.5 }}
               onClick={() => handleCookIt(selected)}
             >
               🍳 Cook it
@@ -267,41 +394,55 @@ export default function RecipesPage() {
         )}
 
         {showIngForm && (
-          <div className="modal-overlay" onClick={() => { setShowIngForm(false); setEditingIng(null); setIngForm(emptyIng) }}>
+          <div className="modal-overlay" onClick={() => { setShowIngForm(false); setEditingIng(null); setEditingSubRef(null); setIsSubRecipeMode(false); setIngForm(emptyIng) }}>
             <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-              <h2>{editingIng ? 'Edit Ingredient' : 'Add Ingredient'}</h2>
+              <h2>{editingSubRef ? 'Edit Multiplier' : editingIng ? 'Edit Ingredient' : 'Add Ingredient'}</h2>
               <div className="form-field">
                 <label>Name</label>
                 <AutocompleteInput
                   value={ingForm.name}
-                  onChange={name => setIngForm(f => ({ ...f, name }))}
-                  suggestions={allNames}
+                  onChange={handleIngNameChange}
+                  suggestions={allSuggestions}
                   placeholder="e.g. Ground beef"
                   autoFocus
                 />
               </div>
-              <div className="form-row">
+              {isSubRecipeMode ? (
                 <div className="form-field">
-                  <label>Quantity</label>
+                  <label>Multiplier</label>
                   <input
                     type="number"
+                    step="0.1"
+                    min="0.01"
                     value={ingForm.quantity}
                     onChange={e => setIngForm(f => ({ ...f, quantity: e.target.value }))}
+                    placeholder="e.g. 0.5"
                   />
                 </div>
-                <div className="form-field">
-                  <label>Unit</label>
-                  <input
-                    value={ingForm.unit}
-                    onChange={e => setIngForm(f => ({ ...f, unit: e.target.value }))}
-                    placeholder="e.g. g"
-                  />
+              ) : (
+                <div className="form-row">
+                  <div className="form-field">
+                    <label>Quantity</label>
+                    <input
+                      type="number"
+                      value={ingForm.quantity}
+                      onChange={e => setIngForm(f => ({ ...f, quantity: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Unit</label>
+                    <input
+                      value={ingForm.unit}
+                      onChange={e => setIngForm(f => ({ ...f, unit: e.target.value }))}
+                      placeholder="e.g. g"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="form-actions">
-                <button className="btn btn-ghost" onClick={() => { setShowIngForm(false); setEditingIng(null); setIngForm(emptyIng) }}>Cancel</button>
-                <button className="btn btn-primary" onClick={editingIng ? handleEditIngredient : handleAddIngredient}>
-                  {editingIng ? 'Save' : 'Add'}
+                <button className="btn btn-ghost" onClick={() => { setShowIngForm(false); setEditingIng(null); setEditingSubRef(null); setIsSubRecipeMode(false); setIngForm(emptyIng) }}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleSaveIngForm}>
+                  {editingSubRef || editingIng ? 'Save' : 'Add'}
                 </button>
               </div>
             </div>
