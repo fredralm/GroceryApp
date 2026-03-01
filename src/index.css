@@ -93,6 +93,10 @@ body {
 .page-header h1 {
   font-size: 20px;
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn {
@@ -102,6 +106,8 @@ body {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-primary {

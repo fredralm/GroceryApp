@@ -581,7 +581,7 @@ export default function RecipesPage() {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div className="page-header">
         <h1>{t('recipes.title')}</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button className="btn btn-ghost" onClick={() => { setShowImport(true); setImportText('') }}>{t('recipes.importBtn')}</button>
           <button className="btn btn-ghost" onClick={() => { setShowShare(true); setShareSelected(new Set()) }}>{t('recipes.shareBtn')}</button>
           <button className="btn btn-ghost" onClick={openShuffle}>{t('recipes.shuffle')}</button>
