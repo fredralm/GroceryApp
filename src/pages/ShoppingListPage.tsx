@@ -11,10 +11,19 @@ export default function ShoppingListPage() {
   const allNames = collectAllIngredientNames(loadInventory(), loadRecipes())
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', quantity: '', unit: '' })
+  const [showShare, setShowShare] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [toast, setToast] = useState('')
 
   function persist(updated: ShoppingListItem[]) {
     setItems(updated)
     saveShoppingList(updated)
+  }
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2000)
   }
 
   function toggle(id: string) {
@@ -67,6 +76,46 @@ export default function ShoppingListPage() {
     persist(removeSelectedItems(items))
   }
 
+  async function handleShare() {
+    const json = JSON.stringify({ type: 'grocery-shopping-list', version: 1, items }, null, 2)
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Shopping List', text: json })
+      } else {
+        await navigator.clipboard.writeText(json)
+        showToast('Copied to clipboard')
+      }
+    } catch {
+      // user cancelled
+    }
+    setShowShare(false)
+  }
+
+  function handleImport() {
+    try {
+      const data = JSON.parse(importText)
+      if (data.type !== 'grocery-shopping-list' || !Array.isArray(data.items)) {
+        showToast('Invalid shopping list data')
+        return
+      }
+      const importedItems: ShoppingListItem[] = data.items
+      const existingNames = new Set(items.map(i => i.name.toLowerCase()))
+      const toAdd = importedItems
+        .filter(i => !existingNames.has(i.name.toLowerCase()))
+        .map(i => ({ ...i, id: uuid(), checked: false }))
+      if (toAdd.length === 0) {
+        showToast('All items already in list')
+        return
+      }
+      persist([...items, ...toAdd])
+      showToast(`Imported ${toAdd.length} item(s)`)
+      setShowImport(false)
+      setImportText('')
+    } catch {
+      showToast('Invalid shopping list data')
+    }
+  }
+
   const checkedCount = items.filter(i => i.checked).length
 
   return (
@@ -83,7 +132,11 @@ export default function ShoppingListPage() {
           style={{ width: 20, height: 20, cursor: items.length === 0 ? 'default' : 'pointer', flexShrink: 0 }}
         />
         <h1>Shopping List</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Add</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => { setShowImport(true); setImportText('') }}>Import</button>
+          <button className="btn btn-ghost" onClick={() => setShowShare(true)}>Share</button>
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Add</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -171,6 +224,54 @@ export default function ShoppingListPage() {
               <button className="btn btn-primary" onClick={handleAddItem}>Add</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showShare && (
+        <div className="modal-overlay" onClick={() => setShowShare(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <h2>Share Shopping List</h2>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
+              Exports all {items.length} item{items.length !== 1 ? 's' : ''} as JSON.
+            </p>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setShowShare(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleShare}>Share</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showImport && (
+        <div className="modal-overlay" onClick={() => setShowImport(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <h2>Import Shopping List</h2>
+            <div className="form-field">
+              <label>Paste JSON</label>
+              <textarea
+                value={importText}
+                onChange={e => setImportText(e.target.value)}
+                rows={8}
+                placeholder="Paste JSON here…"
+                style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }}
+                autoFocus
+              />
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setShowImport(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleImport}>Import</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+          background: '#323232', color: 'white', padding: '10px 20px',
+          borderRadius: 8, fontSize: 14, zIndex: 200, whiteSpace: 'nowrap',
+        }}>
+          {toast}
         </div>
       )}
     </div>
