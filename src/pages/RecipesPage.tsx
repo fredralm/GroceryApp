@@ -584,18 +584,18 @@ export default function RecipesPage() {
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button className="btn btn-ghost" onClick={() => { setShowImport(true); setImportText('') }}>{t('recipes.importBtn')}</button>
           <button className="btn btn-ghost" onClick={() => { setShowShare(true); setShareSelected(new Set()) }}>{t('recipes.shareBtn')}</button>
-          <button className="btn btn-ghost" onClick={openShuffle}>{t('recipes.shuffle')}</button>
           <button className="btn btn-primary" onClick={openAddRecipe}>{t('recipes.add')}</button>
         </div>
       </div>
 
-      <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8 }}>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder={t('recipes.search')}
-          style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 15, boxSizing: 'border-box' }}
+          style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 15, boxSizing: 'border-box' }}
         />
+        <button className="btn btn-ghost" onClick={openShuffle} style={{ padding: '8px 12px', fontSize: 18 }}>{t('recipes.shuffle')}</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
