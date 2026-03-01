@@ -27,3 +27,14 @@ export const saveRecipes = (recipes: Recipe[]): void => save(KEYS.recipes, recip
 
 export const loadShoppingList = (): ShoppingListItem[] => load(KEYS.shoppingList)
 export const saveShoppingList = (items: ShoppingListItem[]): void => save(KEYS.shoppingList, items)
+
+export type Lang = 'en' | 'no'
+
+export function loadLang(): Lang {
+  const raw = localStorage.getItem('grocery_lang')
+  return raw === 'no' ? 'no' : 'en'
+}
+
+export function saveLang(lang: Lang): void {
+  localStorage.setItem('grocery_lang', lang)
+}
