@@ -33,6 +33,10 @@ export default function RecipesPage() {
   const [showShuffle, setShowShuffle] = useState(false)
   const [shuffleReadyOnly, setShuffleReadyOnly] = useState(false)
   const [shufflePick, setShufflePick] = useState<Recipe | null>(null)
+  const [showShare, setShowShare] = useState(false)
+  const [shareSelected, setShareSelected] = useState<Set<string>>(new Set())
+  const [showImport, setShowImport] = useState(false)
+  const [importText, setImportText] = useState('')
 
   function pickRandom(readyOnly = shuffleReadyOnly) {
     const pool = readyOnly
@@ -250,6 +254,65 @@ export default function RecipesPage() {
       return
     }
     cookRecipe(recipe)
+  }
+
+  async function handleShare() {
+    const toExport = recipes.filter(r => shareSelected.has(r.id))
+    if (toExport.length === 0) {
+      showToast('Select at least one recipe')
+      return
+    }
+    const json = JSON.stringify({ type: 'grocery-recipes', version: 1, recipes: toExport }, null, 2)
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Recipes', text: json })
+      } else {
+        await navigator.clipboard.writeText(json)
+        showToast('Copied to clipboard')
+      }
+    } catch {
+      // user cancelled share or clipboard denied — do nothing
+    }
+    setShowShare(false)
+  }
+
+  function handleImport() {
+    try {
+      const data = JSON.parse(importText)
+      if (data.type !== 'grocery-recipes' || !Array.isArray(data.recipes)) {
+        showToast('Invalid recipe data')
+        return
+      }
+      const importedRecipes: Recipe[] = data.recipes
+      const existingNames = new Set(recipes.map(r => r.name.toLowerCase()))
+
+      // Remap IDs for recipes in the import set
+      const idMap: Record<string, string> = {}
+      for (const r of importedRecipes) {
+        idMap[r.id] = uuid()
+      }
+
+      const toAdd: Recipe[] = importedRecipes
+        .filter(r => !existingNames.has(r.name.toLowerCase()))
+        .map(r => ({
+          ...r,
+          id: idMap[r.id],
+          subRecipes: (r.subRecipes ?? [])
+            .filter(s => idMap[s.recipeId] !== undefined)
+            .map(s => ({ ...s, recipeId: idMap[s.recipeId] })),
+        }))
+
+      if (toAdd.length === 0) {
+        showToast('All recipes already exist')
+        return
+      }
+      persistRecipes([...recipes, ...toAdd])
+      showToast(`Imported ${toAdd.length} recipe(s)`)
+      setShowImport(false)
+      setImportText('')
+    } catch {
+      showToast('Invalid recipe data')
+    }
   }
 
   function cookRecipe(recipe: Recipe) {
@@ -517,6 +580,8 @@ export default function RecipesPage() {
       <div className="page-header">
         <h1>Recipes</h1>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => { setShowImport(true); setImportText('') }}>Import</button>
+          <button className="btn btn-ghost" onClick={() => { setShowShare(true); setShareSelected(new Set()) }}>Share</button>
           <button className="btn btn-ghost" onClick={openShuffle}>🎲</button>
           <button className="btn btn-primary" onClick={openAddRecipe}>+ Add</button>
         </div>
@@ -625,6 +690,83 @@ export default function RecipesPage() {
                   Open recipe
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showShare && (
+        <div className="modal-overlay" onClick={() => setShowShare(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <h2>Share Recipes</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={shareSelected.size === recipes.length && recipes.length > 0}
+                ref={el => {
+                  if (el) el.indeterminate = shareSelected.size > 0 && shareSelected.size < recipes.length
+                }}
+                onChange={() => {
+                  if (shareSelected.size === recipes.length) setShareSelected(new Set())
+                  else setShareSelected(new Set(recipes.map(r => r.id)))
+                }}
+                style={{ width: 20, height: 20, cursor: 'pointer', flexShrink: 0 }}
+              />
+              <span style={{ fontSize: 14 }}>Select all</span>
+            </div>
+            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+              {recipes.map(r => (
+                <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={shareSelected.has(r.id)}
+                    onChange={() => {
+                      setShareSelected(prev => {
+                        const next = new Set(prev)
+                        if (next.has(r.id)) next.delete(r.id)
+                        else next.add(r.id)
+                        return next
+                      })
+                    }}
+                    style={{ width: 20, height: 20, flexShrink: 0 }}
+                  />
+                  <span style={{ fontSize: 15 }}>{r.name}</span>
+                </label>
+              ))}
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setShowShare(false)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                style={{ opacity: shareSelected.size === 0 ? 0.4 : 1 }}
+                disabled={shareSelected.size === 0}
+                onClick={handleShare}
+              >
+                Share ({shareSelected.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showImport && (
+        <div className="modal-overlay" onClick={() => setShowImport(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <h2>Import Recipes</h2>
+            <div className="form-field">
+              <label>Paste JSON</label>
+              <textarea
+                value={importText}
+                onChange={e => setImportText(e.target.value)}
+                rows={8}
+                placeholder="Paste JSON here…"
+                style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }}
+                autoFocus
+              />
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setShowImport(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleImport}>Import</button>
             </div>
           </div>
         </div>
