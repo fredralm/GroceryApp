@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { v4 as uuid } from 'uuid'
 import { loadRecipes, saveRecipes, loadInventory, saveInventory, loadShoppingList, saveShoppingList } from '../store'
-import { subtractFromInventory, addRecipeToShoppingList, collectAllIngredientNames, checkIngredient, isRecipeReady, addMissingToShoppingList } from '../logic'
+import { subtractFromInventory, addRecipeToShoppingList, collectAllIngredientNames, checkIngredient, isRecipeReady, addMissingToShoppingList, countMissing } from '../logic'
 import AutocompleteInput from '../components/AutocompleteInput'
 import type { Recipe, RecipeIngredient } from '../types'
 
@@ -23,6 +23,12 @@ export default function RecipesPage() {
   const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set())
   const [showCookWarning, setShowCookWarning] = useState(false)
   const [cookWarningConfirmed, setCookWarningConfirmed] = useState(false)
+  const [search, setSearch] = useState('')
+
+  const sortedFilteredRecipes = recipes
+    .filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
+    .map(r => ({ recipe: r, missing: countMissing(r, inventory, recipes) }))
+    .sort((a, b) => a.missing - b.missing)
 
   function persistRecipes(updated: Recipe[]) {
     setRecipes(updated)
@@ -353,19 +359,29 @@ export default function RecipesPage() {
         <button className="btn btn-primary" onClick={openAddRecipe}>+ Add</button>
       </div>
 
+      <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search recipes…"
+          style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 15, boxSizing: 'border-box' }}
+        />
+      </div>
+
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {recipes.length === 0 && (
           <p className="empty-state">No recipes yet. Add your first recipe.</p>
         )}
 
-        {recipes.map(recipe => (
+        {sortedFilteredRecipes.map(({ recipe, missing }) => (
           <div key={recipe.id} className="list-item" onClick={() => setSelected(recipe)} style={{ cursor: 'pointer' }}>
             <span className="list-item-name">{recipe.name}</span>
             <span className="list-item-meta">
-              {recipe.ingredients.length} ingredients
-              {isRecipeReady(recipe, inventory) && (
-                <span style={{ color: '#4caf50', marginLeft: 6 }}>✓</span>
-              )}
+              {recipe.ingredients.length + (recipe.subRecipes?.length ?? 0)} ingredients
+              {missing === 0
+                ? <span style={{ color: '#4caf50', marginLeft: 6 }}>✓</span>
+                : <span style={{ color: '#ef5350', marginLeft: 6 }}>{missing} missing</span>
+              }
               {' →'}
             </span>
           </div>
