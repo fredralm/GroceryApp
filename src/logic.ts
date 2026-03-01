@@ -130,8 +130,9 @@ export function checkIngredient(
   return { status, inventoryQty: match.quantity, inventoryUnit: match.unit }
 }
 
-export function isRecipeReady(recipe: Recipe, inventory: InventoryItem[]): boolean {
-  return recipe.ingredients.every(
+export function isRecipeReady(recipe: Recipe, inventory: InventoryItem[], allRecipes?: Recipe[]): boolean {
+  const ingredients = allRecipes ? expandIngredients(recipe, allRecipes) : recipe.ingredients
+  return ingredients.every(
     ing => checkIngredient(ing, inventory).status === 'enough'
   )
 }
@@ -154,4 +155,47 @@ export function addMissingToShoppingList(
     }
   }
   return addRecipeToShoppingList(list, toAdd)
+}
+
+export function expandIngredients(
+  recipe: Recipe,
+  allRecipes: Recipe[],
+  visited: Set<string> = new Set()
+): RecipeIngredient[] {
+  if (visited.has(recipe.id)) return []
+  const nextVisited = new Set(visited)
+  nextVisited.add(recipe.id)
+
+  const result: RecipeIngredient[] = [...recipe.ingredients]
+  for (const sub of recipe.subRecipes ?? []) {
+    const subRecipe = allRecipes.find(r => r.id === sub.recipeId)
+    if (!subRecipe) continue
+    const subIngredients = expandIngredients(subRecipe, allRecipes, nextVisited)
+    for (const ing of subIngredients) {
+      result.push({ ...ing, quantity: ing.quantity * sub.multiplier })
+    }
+  }
+  return result
+}
+
+export function countMissing(
+  recipe: Recipe,
+  inventory: InventoryItem[],
+  allRecipes: Recipe[]
+): number {
+  const expanded = expandIngredients(recipe, allRecipes)
+  return expanded.filter(ing => checkIngredient(ing, inventory).status !== 'enough').length
+}
+
+export function hasCircularRef(
+  parentId: string,
+  candidateId: string,
+  allRecipes: Recipe[]
+): boolean {
+  if (candidateId === parentId) return true
+  const parent = allRecipes.find(r => r.id === parentId)
+  if (!parent) return false
+  return (parent.subRecipes ?? []).some(sub =>
+    hasCircularRef(sub.recipeId, candidateId, allRecipes)
+  )
 }

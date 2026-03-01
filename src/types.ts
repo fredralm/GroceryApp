@@ -11,10 +11,16 @@ export interface RecipeIngredient {
   unit: string
 }
 
+export interface SubRecipeRef {
+  recipeId: string
+  multiplier: number
+}
+
 export interface Recipe {
   id: string
   name: string
   ingredients: RecipeIngredient[]
+  subRecipes?: SubRecipeRef[]
 }
 
 export interface ShoppingListItem {

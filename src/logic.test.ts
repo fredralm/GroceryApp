@@ -3,6 +3,7 @@ import {
   convertTo, addToInventory, subtractFromInventory, addRecipeToShoppingList,
   suggestIngredients, collectAllIngredientNames, selectAllItems, removeSelectedItems,
   checkIngredient, isRecipeReady, addMissingToShoppingList,
+  expandIngredients, countMissing, hasCircularRef,
 } from './logic'
 import type { InventoryItem, Recipe, RecipeIngredient, ShoppingListItem } from './types'
 
@@ -478,5 +479,99 @@ describe('addMissingToShoppingList', () => {
     )
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Butter')
+  })
+})
+
+describe('expandIngredients', () => {
+  const ragu: Recipe = {
+    id: 'ragu', name: 'Ragu', ingredients: [
+      { name: 'Ground beef', quantity: 300, unit: 'g' },
+      { name: 'Tomato', quantity: 2, unit: 'pcs' },
+    ]
+  }
+  const pasta: Recipe = {
+    id: 'pasta', name: 'Pasta Bolognese',
+    ingredients: [{ name: 'Pasta', quantity: 400, unit: 'g' }],
+    subRecipes: [{ recipeId: 'ragu', multiplier: 0.5 }],
+  }
+  const allRecipes = [ragu, pasta]
+
+  it('returns own ingredients when no subRecipes', () => {
+    const result = expandIngredients(ragu, allRecipes)
+    expect(result).toHaveLength(2)
+    expect(result[0].name).toBe('Ground beef')
+  })
+
+  it('appends sub-recipe ingredients scaled by multiplier', () => {
+    const result = expandIngredients(pasta, allRecipes)
+    expect(result).toHaveLength(3)
+    const beef = result.find(i => i.name === 'Ground beef')
+    expect(beef?.quantity).toBeCloseTo(150)
+  })
+
+  it('handles missing sub-recipe gracefully', () => {
+    const broken: Recipe = {
+      id: 'broken', name: 'Broken', ingredients: [],
+      subRecipes: [{ recipeId: 'nonexistent', multiplier: 1 }],
+    }
+    expect(expandIngredients(broken, [broken])).toHaveLength(0)
+  })
+
+  it('prevents infinite loop on circular reference', () => {
+    const a: Recipe = { id: 'a', name: 'A', ingredients: [], subRecipes: [{ recipeId: 'b', multiplier: 1 }] }
+    const b: Recipe = { id: 'b', name: 'B', ingredients: [], subRecipes: [{ recipeId: 'a', multiplier: 1 }] }
+    expect(() => expandIngredients(a, [a, b])).not.toThrow()
+    expect(expandIngredients(a, [a, b])).toHaveLength(0)
+  })
+})
+
+describe('countMissing', () => {
+  const inventory: InventoryItem[] = [
+    { id: '1', name: 'Pasta', quantity: 400, unit: 'g' },
+  ]
+  const recipe: Recipe = {
+    id: 'r1', name: 'Test', ingredients: [
+      { name: 'Pasta', quantity: 400, unit: 'g' },
+      { name: 'Eggs', quantity: 2, unit: 'pcs' },
+    ]
+  }
+
+  it('returns count of ingredients not fully in inventory', () => {
+    expect(countMissing(recipe, inventory, [])).toBe(1)
+  })
+
+  it('returns 0 when all ingredients are covered', () => {
+    const full: InventoryItem[] = [
+      { id: '1', name: 'Pasta', quantity: 400, unit: 'g' },
+      { id: '2', name: 'Eggs', quantity: 2, unit: 'pcs' },
+    ]
+    expect(countMissing(recipe, full, [])).toBe(0)
+  })
+
+  it('counts missing from expanded sub-recipes', () => {
+    const sub: Recipe = { id: 'sub', name: 'Sub', ingredients: [{ name: 'Beef', quantity: 200, unit: 'g' }] }
+    const parent: Recipe = {
+      id: 'parent', name: 'Parent', ingredients: [],
+      subRecipes: [{ recipeId: 'sub', multiplier: 1 }],
+    }
+    expect(countMissing(parent, inventory, [sub, parent])).toBe(1)
+  })
+})
+
+describe('hasCircularRef', () => {
+  const a: Recipe = { id: 'a', name: 'A', ingredients: [], subRecipes: [{ recipeId: 'b', multiplier: 1 }] }
+  const b: Recipe = { id: 'b', name: 'B', ingredients: [] }
+
+  it('returns false when no cycle exists', () => {
+    expect(hasCircularRef('b', 'a', [a, b])).toBe(false)
+  })
+
+  it('returns true when candidate is same as parent', () => {
+    expect(hasCircularRef('a', 'a', [a, b])).toBe(true)
+  })
+
+  it('returns true when adding would create a transitive cycle', () => {
+    const bWithA: Recipe = { id: 'b', name: 'B', ingredients: [], subRecipes: [{ recipeId: 'a', multiplier: 1 }] }
+    expect(hasCircularRef('b', 'a', [a, bWithA])).toBe(true)
   })
 })
