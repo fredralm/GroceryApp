@@ -4,11 +4,13 @@ import { loadRecipes, saveRecipes, loadInventory, saveInventory, loadShoppingLis
 import { subtractFromInventory, addRecipeToShoppingList, collectAllIngredientNames, checkIngredient, isRecipeReady, addMissingToShoppingList, countMissing, expandIngredients, hasCircularRef } from '../logic'
 import AutocompleteInput from '../components/AutocompleteInput'
 import type { Recipe, RecipeIngredient, SubRecipeRef } from '../types'
+import { useTranslation } from '../i18n'
 
 type IngredientForm = { name: string; quantity: string; unit: string }
 const emptyIng: IngredientForm = { name: '', quantity: '', unit: '' }
 
 export default function RecipesPage() {
+  const { t } = useTranslation()
   const [recipes, setRecipes] = useState<Recipe[]>(loadRecipes)
   const [selected, setSelected] = useState<Recipe | null>(null)
   const inventory = loadInventory()
@@ -327,13 +329,13 @@ export default function RecipesPage() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         <div className="page-header">
-          <button className="btn btn-ghost" onClick={() => { setSelected(null); setSelectedIngredients(new Set()) }}>← Back</button>
+          <button className="btn btn-ghost" onClick={() => { setSelected(null); setSelectedIngredients(new Set()) }}>{t('recipe.back')}</button>
           <h1 style={{ fontSize: 17 }}>{selected.name}</h1>
           <button className="btn btn-ghost" onClick={() => {
             setEditingRecipe(selected)
             setRecipeName(selected.name)
             setShowRecipeForm(true)
-          }}>Edit</button>
+          }}>{t('recipe.edit')}</button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -348,7 +350,7 @@ export default function RecipesPage() {
                 onChange={handleSelectAllIngredients}
                 style={{ width: 20, height: 20, cursor: 'pointer', flexShrink: 0 }}
               />
-              <span style={{ fontSize: 13, color: '#666' }}>Select all</span>
+              <span style={{ fontSize: 13, color: '#666' }}>{t('recipe.selectAll')}</span>
             </div>
           )}
           {selected.ingredients.map(ing => {
@@ -366,14 +368,14 @@ export default function RecipesPage() {
                 <span className="list-item-name">{ing.name}</span>
                 <span className="list-item-meta">
                   {ing.quantity} {ing.unit}
-                  <span style={{ color: '#999', marginLeft: 4, fontSize: 12 }}>({check.inventoryQty} {check.inventoryUnit} in inventory)</span>
+                  <span style={{ color: '#999', marginLeft: 4, fontSize: 12 }}>({check.inventoryQty} {check.inventoryUnit} {t('recipe.inInventory')})</span>
                 </span>
                 <button
                   className="btn btn-danger"
                   style={{ padding: '6px 10px', fontSize: 12 }}
                   onClick={e => { e.stopPropagation(); handleDeleteIngredient(ing.name) }}
                 >
-                  Remove
+                  {t('recipe.remove')}
                 </button>
               </div>
             )
@@ -420,14 +422,14 @@ export default function RecipesPage() {
                     setSelected(updated.find(r => r.id === selected.id) ?? null)
                   }}
                 >
-                  Remove
+                  {t('recipe.remove')}
                 </button>
               </div>
             )
           })}
 
           {selected.ingredients.length === 0 && (selected.subRecipes ?? []).length === 0 && (
-            <p className="empty-state">No ingredients yet.</p>
+            <p className="empty-state">{t('recipe.noIngredients')}</p>
           )}
 
           <div style={{ padding: '12px 16px' }}>
@@ -437,13 +439,13 @@ export default function RecipesPage() {
               setIsSubRecipeMode(false)
               setIngForm(emptyIng)
               setShowIngForm(true)
-            }}>+ Add ingredient</button>
+            }}>{t('recipe.addIngredient')}</button>
           </div>
         </div>
 
         <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', gap: 8, flexDirection: 'column' }}>
           <button className="btn btn-primary" onClick={() => handleAddToList(selected)}>
-            🛒 Add to shopping list
+            {t('recipe.addToList')}
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
@@ -451,10 +453,10 @@ export default function RecipesPage() {
               style={{ flex: 1, background: '#ff9800', color: 'white', opacity: isRecipeReady(selected, inventory, recipes) ? 1 : 0.5 }}
               onClick={() => handleCookIt(selected)}
             >
-              🍳 Cook it
+              {t('recipe.cookIt')}
             </button>
             <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => handleDeleteRecipe(selected.id)}>
-              Delete recipe
+              {t('recipe.deleteRecipe')}
             </button>
           </div>
         </div>
@@ -462,14 +464,14 @@ export default function RecipesPage() {
         {showRecipeForm && (
           <div className="modal-overlay" onClick={() => setShowRecipeForm(false)}>
             <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-              <h2>Edit Recipe Name</h2>
+              <h2>{t('recipe.editRecipeName')}</h2>
               <div className="form-field">
-                <label>Name</label>
+                <label>{t('recipe.name')}</label>
                 <input value={recipeName} onChange={e => setRecipeName(e.target.value)} autoFocus />
               </div>
               <div className="form-actions">
-                <button className="btn btn-ghost" onClick={() => setShowRecipeForm(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={handleSaveRecipe}>Save</button>
+                <button className="btn btn-ghost" onClick={() => setShowRecipeForm(false)}>{t('recipe.cancel')}</button>
+                <button className="btn btn-primary" onClick={handleSaveRecipe}>{t('recipe.save')}</button>
               </div>
             </div>
           </div>
@@ -478,33 +480,33 @@ export default function RecipesPage() {
         {showIngForm && (
           <div className="modal-overlay" onClick={() => { setShowIngForm(false); setEditingIng(null); setEditingSubRef(null); setIsSubRecipeMode(false); setIngForm(emptyIng) }}>
             <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-              <h2>{editingSubRef ? 'Edit Multiplier' : editingIng ? 'Edit Ingredient' : 'Add Ingredient'}</h2>
+              <h2>{editingSubRef ? t('recipe.editMultiplierTitle') : editingIng ? t('recipe.editIngredientTitle') : t('recipe.addIngredientTitle')}</h2>
               <div className="form-field">
-                <label>Name</label>
+                <label>{t('recipe.ingredientName')}</label>
                 <AutocompleteInput
                   value={ingForm.name}
                   onChange={handleIngNameChange}
                   suggestions={allSuggestions}
-                  placeholder="e.g. Ground beef"
+                  placeholder={t('recipe.ingredientNamePlaceholder')}
                   autoFocus
                 />
               </div>
               {isSubRecipeMode ? (
                 <div className="form-field">
-                  <label>Multiplier</label>
+                  <label>{t('recipe.multiplier')}</label>
                   <input
                     type="number"
                     step="0.1"
                     min="0.01"
                     value={ingForm.quantity}
                     onChange={e => setIngForm(f => ({ ...f, quantity: e.target.value }))}
-                    placeholder="e.g. 0.5"
+                    placeholder={t('recipe.multiplierPlaceholder')}
                   />
                 </div>
               ) : (
                 <div className="form-row">
                   <div className="form-field">
-                    <label>Quantity</label>
+                    <label>{t('recipe.quantity')}</label>
                     <input
                       type="number"
                       value={ingForm.quantity}
@@ -512,19 +514,19 @@ export default function RecipesPage() {
                     />
                   </div>
                   <div className="form-field">
-                    <label>Unit</label>
+                    <label>{t('recipe.unit')}</label>
                     <input
                       value={ingForm.unit}
                       onChange={e => setIngForm(f => ({ ...f, unit: e.target.value }))}
-                      placeholder="e.g. g"
+                      placeholder={t('recipe.unitPlaceholder')}
                     />
                   </div>
                 </div>
               )}
               <div className="form-actions">
-                <button className="btn btn-ghost" onClick={() => { setShowIngForm(false); setEditingIng(null); setEditingSubRef(null); setIsSubRecipeMode(false); setIngForm(emptyIng) }}>Cancel</button>
+                <button className="btn btn-ghost" onClick={() => { setShowIngForm(false); setEditingIng(null); setEditingSubRef(null); setIsSubRecipeMode(false); setIngForm(emptyIng) }}>{t('recipe.cancel')}</button>
                 <button className="btn btn-primary" onClick={handleSaveIngForm}>
-                  {editingSubRef || editingIng ? 'Save' : 'Add'}
+                  {editingSubRef || editingIng ? t('recipe.save') : t('recipe.add')}
                 </button>
               </div>
             </div>
@@ -534,9 +536,9 @@ export default function RecipesPage() {
         {showCookWarning && (
           <div className="modal-overlay" style={{ alignItems: 'center', justifyContent: 'center', padding: '0 16px' }} onClick={() => setShowCookWarning(false)}>
             <div className="modal-sheet" style={{ borderRadius: 16, width: '100%', margin: 0 }} onClick={e => e.stopPropagation()}>
-              <h2>Missing ingredients</h2>
+              <h2>{t('recipe.missingWarningTitle')}</h2>
               <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                Some ingredients are missing or insufficient in your inventory. You can still cook with what you have.
+                {t('recipe.missingWarningBody')}
               </p>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14 }}>
                 <input
@@ -545,17 +547,17 @@ export default function RecipesPage() {
                   onChange={e => setCookWarningConfirmed(e.target.checked)}
                   style={{ width: 20, height: 20, flexShrink: 0 }}
                 />
-                I'll cook with the ingredients I have in inventory
+                {t('recipe.missingWarningCheckbox')}
               </label>
               <div className="form-actions">
-                <button className="btn btn-ghost" onClick={() => setShowCookWarning(false)}>Cancel</button>
+                <button className="btn btn-ghost" onClick={() => setShowCookWarning(false)}>{t('recipe.cancel')}</button>
                 <button
                   className="btn"
                   style={{ flex: 1, background: '#ff9800', color: 'white', opacity: cookWarningConfirmed ? 1 : 0.4 }}
                   disabled={!cookWarningConfirmed}
                   onClick={() => cookRecipe(selected)}
                 >
-                  Cook it
+                  {t('recipe.cookIt')}
                 </button>
               </div>
             </div>
@@ -578,12 +580,12 @@ export default function RecipesPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div className="page-header">
-        <h1>Recipes</h1>
+        <h1>{t('recipes.title')}</h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-ghost" onClick={() => { setShowImport(true); setImportText('') }}>Import</button>
-          <button className="btn btn-ghost" onClick={() => { setShowShare(true); setShareSelected(new Set()) }}>Share</button>
-          <button className="btn btn-ghost" onClick={openShuffle}>🎲</button>
-          <button className="btn btn-primary" onClick={openAddRecipe}>+ Add</button>
+          <button className="btn btn-ghost" onClick={() => { setShowImport(true); setImportText('') }}>{t('recipes.importBtn')}</button>
+          <button className="btn btn-ghost" onClick={() => { setShowShare(true); setShareSelected(new Set()) }}>{t('recipes.shareBtn')}</button>
+          <button className="btn btn-ghost" onClick={openShuffle}>{t('recipes.shuffle')}</button>
+          <button className="btn btn-primary" onClick={openAddRecipe}>{t('recipes.add')}</button>
         </div>
       </div>
 
@@ -591,24 +593,24 @@ export default function RecipesPage() {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search recipes…"
+          placeholder={t('recipes.search')}
           style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 15, boxSizing: 'border-box' }}
         />
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {recipes.length === 0 && (
-          <p className="empty-state">No recipes yet. Add your first recipe.</p>
+          <p className="empty-state">{t('recipes.empty')}</p>
         )}
 
         {sortedFilteredRecipes.map(({ recipe, missing }) => (
           <div key={recipe.id} className="list-item" onClick={() => setSelected(recipe)} style={{ cursor: 'pointer' }}>
             <span className="list-item-name">{recipe.name}</span>
             <span className="list-item-meta">
-              {recipe.ingredients.length + (recipe.subRecipes?.length ?? 0)} ingredients
+              {recipe.ingredients.length + (recipe.subRecipes?.length ?? 0)} {t('recipes.ingredients')}
               {missing === 0
                 ? <span style={{ color: '#4caf50', marginLeft: 6 }}>✓</span>
-                : <span style={{ color: '#ef5350', marginLeft: 6 }}>{missing} missing</span>
+                : <span style={{ color: '#ef5350', marginLeft: 6 }}>{missing} {t('recipes.missing')}</span>
               }
               {' →'}
             </span>
@@ -619,19 +621,19 @@ export default function RecipesPage() {
       {showRecipeForm && (
         <div className="modal-overlay" onClick={() => setShowRecipeForm(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-            <h2>New Recipe</h2>
+            <h2>{t('recipes.newRecipe')}</h2>
             <div className="form-field">
-              <label>Recipe name</label>
+              <label>{t('recipes.recipeName')}</label>
               <input
                 value={recipeName}
                 onChange={e => setRecipeName(e.target.value)}
-                placeholder="e.g. Bolognese"
+                placeholder={t('recipes.recipeNamePlaceholder')}
                 autoFocus
               />
             </div>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setShowRecipeForm(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSaveRecipe}>Create</button>
+              <button className="btn btn-ghost" onClick={() => setShowRecipeForm(false)}>{t('recipes.cancel')}</button>
+              <button className="btn btn-primary" onClick={handleSaveRecipe}>{t('recipes.create')}</button>
             </div>
           </div>
         </div>
@@ -648,7 +650,7 @@ export default function RecipesPage() {
             style={{ borderRadius: 16, width: '100%', margin: 0 }}
             onClick={e => e.stopPropagation()}
           >
-            <h2>Meal Suggestion</h2>
+            <h2>{t('shuffle.title')}</h2>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               <button
@@ -656,14 +658,14 @@ export default function RecipesPage() {
                 style={{ flex: 1, fontSize: 13 }}
                 onClick={() => { setShuffleReadyOnly(false); pickRandom(false) }}
               >
-                Any recipe
+                {t('shuffle.filterAny')}
               </button>
               <button
                 className={`btn ${shuffleReadyOnly ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ flex: 1, fontSize: 13 }}
                 onClick={() => { setShuffleReadyOnly(true); pickRandom(true) }}
               >
-                Only recipes I can cook now
+                {t('shuffle.filterReady')}
               </button>
             </div>
 
@@ -673,12 +675,12 @@ export default function RecipesPage() {
               </p>
             ) : (
               <p style={{ color: 'var(--text-secondary)', textAlign: 'center', margin: '16px 0' }}>
-                No recipes match this filter.
+                {t('shuffle.none')}
               </p>
             )}
 
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => pickRandom()}>🎲 Shuffle again</button>
+              <button className="btn btn-ghost" onClick={() => pickRandom()}>{t('shuffle.again')}</button>
               {shufflePick && (
                 <button
                   className="btn btn-primary"
@@ -687,7 +689,7 @@ export default function RecipesPage() {
                     setSelected(shufflePick)
                   }}
                 >
-                  Open recipe
+                  {t('shuffle.open')}
                 </button>
               )}
             </div>
@@ -698,7 +700,7 @@ export default function RecipesPage() {
       {showShare && (
         <div className="modal-overlay" onClick={() => setShowShare(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-            <h2>Share Recipes</h2>
+            <h2>{t('recipes.shareTitle')}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
               <input
                 type="checkbox"
@@ -712,7 +714,7 @@ export default function RecipesPage() {
                 }}
                 style={{ width: 20, height: 20, cursor: 'pointer', flexShrink: 0 }}
               />
-              <span style={{ fontSize: 14 }}>Select all</span>
+              <span style={{ fontSize: 14 }}>{t('recipes.selectAll')}</span>
             </div>
             <div style={{ maxHeight: 300, overflowY: 'auto' }}>
               {recipes.map(r => (
@@ -735,7 +737,7 @@ export default function RecipesPage() {
               ))}
             </div>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setShowShare(false)}>Cancel</button>
+              <button className="btn btn-ghost" onClick={() => setShowShare(false)}>{t('recipes.cancel')}</button>
               <button
                 className="btn btn-primary"
                 style={{ opacity: shareSelected.size === 0 ? 0.4 : 1 }}
@@ -752,21 +754,21 @@ export default function RecipesPage() {
       {showImport && (
         <div className="modal-overlay" onClick={() => setShowImport(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-            <h2>Import Recipes</h2>
+            <h2>{t('recipes.importTitle')}</h2>
             <div className="form-field">
               <label>Paste JSON</label>
               <textarea
                 value={importText}
                 onChange={e => setImportText(e.target.value)}
                 rows={8}
-                placeholder="Paste JSON here…"
+                placeholder={t('recipes.importPlaceholder')}
                 style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }}
                 autoFocus
               />
             </div>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setShowImport(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleImport}>Import</button>
+              <button className="btn btn-ghost" onClick={() => setShowImport(false)}>{t('recipes.cancel')}</button>
+              <button className="btn btn-primary" onClick={handleImport}>{t('recipes.importConfirm')}</button>
             </div>
           </div>
         </div>

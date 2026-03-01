@@ -55,13 +55,13 @@ export default function InventoryPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div className="page-header">
-        <h1>Inventory</h1>
-        <button className="btn btn-primary" onClick={openAdd}>+ Add</button>
+        <h1>{t('inventory.title')}</h1>
+        <button className="btn btn-primary" onClick={openAdd}>{t('inventory.add')}</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {items.length === 0 && (
-          <p className="empty-state">No items yet. Add what you have at home.</p>
+          <p className="empty-state">{t('inventory.empty')}</p>
         )}
 
         {items.map(item => (
@@ -82,39 +82,39 @@ export default function InventoryPage() {
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-            <h2>{editing ? 'Edit Item' : 'Add Item'}</h2>
+            <h2>{t(editing ? 'inventory.editItem' : 'inventory.addItem')}</h2>
             <div className="form-field">
-              <label>Name</label>
+              <label>{t('inventory.name')}</label>
               <AutocompleteInput
                 value={form.name}
                 onChange={name => setForm(f => ({ ...f, name }))}
                 suggestions={allNames}
-                placeholder="e.g. Pasta"
+                placeholder={t('inventory.namePlaceholder')}
                 autoFocus
               />
             </div>
             <div className="form-row">
               <div className="form-field">
-                <label>Quantity</label>
+                <label>{t('inventory.quantity')}</label>
                 <input
                   type="number"
                   value={form.quantity}
                   onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                  placeholder="e.g. 500"
+                  placeholder={t('inventory.quantityPlaceholder')}
                 />
               </div>
               <div className="form-field">
-                <label>Unit</label>
+                <label>{t('inventory.unit')}</label>
                 <input
                   value={form.unit}
                   onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                  placeholder="e.g. g"
+                  placeholder={t('inventory.unitPlaceholder')}
                 />
               </div>
             </div>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>Save</button>
+              <button className="btn btn-ghost" onClick={() => setShowForm(false)}>{t('inventory.cancel')}</button>
+              <button className="btn btn-primary" onClick={handleSave}>{t('inventory.save')}</button>
             </div>
           </div>
         </div>

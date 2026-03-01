@@ -5,8 +5,10 @@ import { addToInventory, collectAllIngredientNames, selectAllItems, removeSelect
 import { loadRecipes } from '../store'
 import AutocompleteInput from '../components/AutocompleteInput'
 import type { ShoppingListItem } from '../types'
+import { useTranslation } from '../i18n'
 
 export default function ShoppingListPage() {
+  const { t } = useTranslation()
   const [items, setItems] = useState<ShoppingListItem[]>(loadShoppingList)
   const allNames = collectAllIngredientNames(loadInventory(), loadRecipes())
   const [showForm, setShowForm] = useState(false)
@@ -131,17 +133,17 @@ export default function ShoppingListPage() {
           disabled={items.length === 0}
           style={{ width: 20, height: 20, cursor: items.length === 0 ? 'default' : 'pointer', flexShrink: 0 }}
         />
-        <h1>Shopping List</h1>
+        <h1>{t('shopping.title')}</h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-ghost" onClick={() => { setShowImport(true); setImportText('') }}>Import</button>
-          <button className="btn btn-ghost" onClick={() => setShowShare(true)}>Share</button>
-          <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Add</button>
+          <button className="btn btn-ghost" onClick={() => { setShowImport(true); setImportText('') }}>{t('shopping.import')}</button>
+          <button className="btn btn-ghost" onClick={() => setShowShare(true)}>{t('shopping.share')}</button>
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>{t('shopping.add')}</button>
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {items.length === 0 && (
-          <p className="empty-state">Your list is empty. Add items or use "Add to list" from a recipe.</p>
+          <p className="empty-state">{t('shopping.empty')}</p>
         )}
 
         {items.map(item => (
@@ -179,10 +181,10 @@ export default function ShoppingListPage() {
       {checkedCount > 0 && (
         <div style={{ padding: 16, display: 'flex', gap: 8, flexShrink: 0, borderTop: '1px solid var(--border)' }}>
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleBuySelected}>
-            ✓ Buy selected ({checkedCount})
+            {t('shopping.buySelected', { n: checkedCount })}
           </button>
           <button className="btn btn-danger" style={{ flex: 1 }} onClick={handleRemoveSelected}>
-            ✗ Remove selected ({checkedCount})
+            {t('shopping.removeSelected', { n: checkedCount })}
           </button>
         </div>
       )}
@@ -190,20 +192,20 @@ export default function ShoppingListPage() {
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-            <h2>Add Item</h2>
+            <h2>{t('shopping.addItem')}</h2>
             <div className="form-field">
-              <label>Name</label>
+              <label>{t('shopping.name')}</label>
               <AutocompleteInput
                 value={form.name}
                 onChange={name => setForm(f => ({ ...f, name }))}
                 suggestions={allNames}
-                placeholder="e.g. Toilet paper"
+                placeholder={t('shopping.namePlaceholder')}
                 autoFocus
               />
             </div>
             <div className="form-row">
               <div className="form-field">
-                <label>Quantity (optional)</label>
+                <label>{t('shopping.quantityOptional')}</label>
                 <input
                   type="number"
                   value={form.quantity}
@@ -211,17 +213,17 @@ export default function ShoppingListPage() {
                 />
               </div>
               <div className="form-field">
-                <label>Unit (optional)</label>
+                <label>{t('shopping.unitOptional')}</label>
                 <input
                   value={form.unit}
                   onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                  placeholder="e.g. pcs"
+                  placeholder={t('shopping.unitPlaceholder')}
                 />
               </div>
             </div>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAddItem}>Add</button>
+              <button className="btn btn-ghost" onClick={() => setShowForm(false)}>{t('shopping.cancel')}</button>
+              <button className="btn btn-primary" onClick={handleAddItem}>{t('shopping.addBtn')}</button>
             </div>
           </div>
         </div>
@@ -230,13 +232,13 @@ export default function ShoppingListPage() {
       {showShare && (
         <div className="modal-overlay" onClick={() => setShowShare(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-            <h2>Share Shopping List</h2>
+            <h2>{t('shopping.shareTitle')}</h2>
             <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
               Exports all {items.length} item{items.length !== 1 ? 's' : ''} as JSON.
             </p>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setShowShare(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleShare}>Share</button>
+              <button className="btn btn-ghost" onClick={() => setShowShare(false)}>{t('shopping.cancel')}</button>
+              <button className="btn btn-primary" onClick={handleShare}>{t('shopping.share')}</button>
             </div>
           </div>
         </div>
@@ -245,21 +247,21 @@ export default function ShoppingListPage() {
       {showImport && (
         <div className="modal-overlay" onClick={() => setShowImport(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-            <h2>Import Shopping List</h2>
+            <h2>{t('shopping.importTitle')}</h2>
             <div className="form-field">
               <label>Paste JSON</label>
               <textarea
                 value={importText}
                 onChange={e => setImportText(e.target.value)}
                 rows={8}
-                placeholder="Paste JSON here…"
+                placeholder={t('shopping.importPlaceholder')}
                 style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }}
                 autoFocus
               />
             </div>
             <div className="form-actions">
-              <button className="btn btn-ghost" onClick={() => setShowImport(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleImport}>Import</button>
+              <button className="btn btn-ghost" onClick={() => setShowImport(false)}>{t('shopping.cancel')}</button>
+              <button className="btn btn-primary" onClick={handleImport}>{t('shopping.importConfirm')}</button>
             </div>
           </div>
         </div>
