@@ -30,6 +30,25 @@ export default function RecipesPage() {
   const [showCookWarning, setShowCookWarning] = useState(false)
   const [cookWarningConfirmed, setCookWarningConfirmed] = useState(false)
   const [search, setSearch] = useState('')
+  const [showShuffle, setShowShuffle] = useState(false)
+  const [shuffleReadyOnly, setShuffleReadyOnly] = useState(false)
+  const [shufflePick, setShufflePick] = useState<Recipe | null>(null)
+
+  function pickRandom(readyOnly = shuffleReadyOnly) {
+    const pool = readyOnly
+      ? recipes.filter(r => isRecipeReady(r, inventory, recipes))
+      : recipes
+    if (pool.length === 0) {
+      setShufflePick(null)
+      return
+    }
+    setShufflePick(pool[Math.floor(Math.random() * pool.length)])
+  }
+
+  function openShuffle() {
+    setShowShuffle(true)
+    pickRandom(shuffleReadyOnly)
+  }
 
   const sortedFilteredRecipes = recipes
     .filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
@@ -497,7 +516,10 @@ export default function RecipesPage() {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div className="page-header">
         <h1>Recipes</h1>
-        <button className="btn btn-primary" onClick={openAddRecipe}>+ Add</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={openShuffle}>🎲</button>
+          <button className="btn btn-primary" onClick={openAddRecipe}>+ Add</button>
+        </div>
       </div>
 
       <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
@@ -545,6 +567,64 @@ export default function RecipesPage() {
             <div className="form-actions">
               <button className="btn btn-ghost" onClick={() => setShowRecipeForm(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleSaveRecipe}>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showShuffle && (
+        <div
+          className="modal-overlay"
+          style={{ alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}
+          onClick={() => setShowShuffle(false)}
+        >
+          <div
+            className="modal-sheet"
+            style={{ borderRadius: 16, width: '100%', margin: 0 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2>Meal Suggestion</h2>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <button
+                className={`btn ${!shuffleReadyOnly ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ flex: 1, fontSize: 13 }}
+                onClick={() => { setShuffleReadyOnly(false); pickRandom(false) }}
+              >
+                Any recipe
+              </button>
+              <button
+                className={`btn ${shuffleReadyOnly ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ flex: 1, fontSize: 13 }}
+                onClick={() => { setShuffleReadyOnly(true); pickRandom(true) }}
+              >
+                Only recipes I can cook now
+              </button>
+            </div>
+
+            {shufflePick ? (
+              <p style={{ fontSize: 22, fontWeight: 600, textAlign: 'center', margin: '16px 0' }}>
+                {shufflePick.name}
+              </p>
+            ) : (
+              <p style={{ color: 'var(--text-secondary)', textAlign: 'center', margin: '16px 0' }}>
+                No recipes match this filter.
+              </p>
+            )}
+
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => pickRandom()}>🎲 Shuffle again</button>
+              {shufflePick && (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setShowShuffle(false)
+                    setSelected(shufflePick)
+                  }}
+                >
+                  Open recipe
+                </button>
+              )}
             </div>
           </div>
         </div>
