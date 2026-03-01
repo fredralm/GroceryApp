@@ -18,6 +18,7 @@ export default function RecipesPage() {
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
   const [showIngForm, setShowIngForm] = useState(false)
   const [ingForm, setIngForm] = useState<IngredientForm>(emptyIng)
+  const [editingIng, setEditingIng] = useState<RecipeIngredient | null>(null)
   const [toast, setToast] = useState('')
   const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set())
   const [showCookWarning, setShowCookWarning] = useState(false)
@@ -83,6 +84,29 @@ export default function RecipesPage() {
     )
     persistRecipes(updated)
     setSelected(updated.find(r => r.id === selected.id) ?? null)
+  }
+
+  function openEditIngredient(ing: RecipeIngredient) {
+    setEditingIng(ing)
+    setIngForm({ name: ing.name, quantity: String(ing.quantity), unit: ing.unit })
+    setShowIngForm(true)
+  }
+
+  function handleEditIngredient() {
+    if (!selected || !editingIng) return
+    const qty = parseFloat(ingForm.quantity)
+    if (!ingForm.name.trim() || isNaN(qty) || qty <= 0) return
+    const updatedIng: RecipeIngredient = { name: ingForm.name.trim(), quantity: qty, unit: ingForm.unit.trim() }
+    const updated = recipes.map(r =>
+      r.id === selected.id
+        ? { ...r, ingredients: r.ingredients.map(i => i.name === editingIng.name ? updatedIng : i) }
+        : r
+    )
+    persistRecipes(updated)
+    setSelected(updated.find(r => r.id === selected.id) ?? null)
+    setIngForm(emptyIng)
+    setEditingIng(null)
+    setShowIngForm(false)
   }
 
   function handleAddToList(recipe: Recipe) {
@@ -169,7 +193,7 @@ export default function RecipesPage() {
             const check = checkIngredient(ing, inventory)
             const dotColor = check.status === 'enough' ? '#4caf50' : check.status === 'partial' ? '#ff9800' : '#ef5350'
             return (
-              <div key={ing.name} className="list-item">
+              <div key={ing.name} className="list-item" onClick={() => openEditIngredient(ing)} style={{ cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={selectedIngredients.has(ing.name)}
@@ -185,7 +209,7 @@ export default function RecipesPage() {
                 <button
                   className="btn btn-danger"
                   style={{ padding: '6px 10px', fontSize: 12 }}
-                  onClick={() => handleDeleteIngredient(ing.name)}
+                  onClick={e => { e.stopPropagation(); handleDeleteIngredient(ing.name) }}
                 >
                   Remove
                 </button>
@@ -198,7 +222,7 @@ export default function RecipesPage() {
           )}
 
           <div style={{ padding: '12px 16px' }}>
-            <button className="btn btn-ghost" onClick={() => setShowIngForm(true)}>+ Add ingredient</button>
+            <button className="btn btn-ghost" onClick={() => { setEditingIng(null); setIngForm(emptyIng); setShowIngForm(true) }}>+ Add ingredient</button>
           </div>
         </div>
 
@@ -237,9 +261,9 @@ export default function RecipesPage() {
         )}
 
         {showIngForm && (
-          <div className="modal-overlay" onClick={() => setShowIngForm(false)}>
+          <div className="modal-overlay" onClick={() => { setShowIngForm(false); setEditingIng(null); setIngForm(emptyIng) }}>
             <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-              <h2>Add Ingredient</h2>
+              <h2>{editingIng ? 'Edit Ingredient' : 'Add Ingredient'}</h2>
               <div className="form-field">
                 <label>Name</label>
                 <AutocompleteInput
@@ -269,8 +293,10 @@ export default function RecipesPage() {
                 </div>
               </div>
               <div className="form-actions">
-                <button className="btn btn-ghost" onClick={() => setShowIngForm(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={handleAddIngredient}>Add</button>
+                <button className="btn btn-ghost" onClick={() => { setShowIngForm(false); setEditingIng(null); setIngForm(emptyIng) }}>Cancel</button>
+                <button className="btn btn-primary" onClick={editingIng ? handleEditIngredient : handleAddIngredient}>
+                  {editingIng ? 'Save' : 'Add'}
+                </button>
               </div>
             </div>
           </div>
