@@ -668,7 +668,7 @@ export default function RecipesPage() {
             </div>
 
             {shufflePick ? (
-              <p style={{ fontSize: 22, fontWeight: 600, textAlign: 'center', margin: '16px 0' }}>
+              <p style={{ fontSize: 22, fontWeight: 600, textAlign: 'center', margin: '16px 0', wordBreak: 'break-word' }}>
                 {shufflePick.name}
               </p>
             ) : (

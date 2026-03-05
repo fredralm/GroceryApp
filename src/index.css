@@ -139,6 +139,7 @@ body {
 .list-item-name {
   flex: 1;
   font-size: 16px;
+  word-break: break-word;
 }
 
 .list-item-meta {
@@ -169,6 +170,7 @@ body {
 .modal-sheet h2 {
   font-size: 18px;
   margin-bottom: 16px;
+  word-break: break-word;
 }
 
 .form-field {
