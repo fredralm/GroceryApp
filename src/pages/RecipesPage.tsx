@@ -534,8 +534,8 @@ export default function RecipesPage() {
         )}
 
         {showCookWarning && (
-          <div className="modal-overlay" style={{ alignItems: 'center', justifyContent: 'center', padding: '0 16px' }} onClick={() => setShowCookWarning(false)}>
-            <div className="modal-sheet" style={{ borderRadius: 16, width: '100%', margin: 0 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-overlay" onClick={() => setShowCookWarning(false)}>
+            <div className="modal-sheet" onClick={e => e.stopPropagation()}>
               <h2>{t('recipe.missingWarningTitle')}</h2>
               <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
                 {t('recipe.missingWarningBody')}
@@ -642,12 +642,10 @@ export default function RecipesPage() {
       {showShuffle && (
         <div
           className="modal-overlay"
-          style={{ alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}
           onClick={() => setShowShuffle(false)}
         >
           <div
             className="modal-sheet"
-            style={{ borderRadius: 16, width: '100%', margin: 0 }}
             onClick={e => e.stopPropagation()}
           >
             <h2>{t('shuffle.title')}</h2>

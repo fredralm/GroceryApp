@@ -113,6 +113,7 @@ const translations = {
     'shopping.copiedToClipboard': 'Copied to clipboard',
     'shopping.share': 'Share',
     'shopping.import': 'Import',
+    'shopping.saveBtn': 'Save',
 
     // Settings
     'settings.title': 'Settings',
@@ -231,6 +232,7 @@ const translations = {
     'shopping.copiedToClipboard': 'Kopiert til utklippstavle',
     'shopping.share': 'Del',
     'shopping.import': 'Importer',
+    'shopping.saveBtn': 'Lagre',
 
     // Settings
     'settings.title': 'Innstillinger',

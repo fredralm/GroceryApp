@@ -118,6 +118,25 @@ export default function ShoppingListPage() {
     }
   }
 
+  const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null)
+  const [editForm, setEditForm] = useState({ quantity: '', unit: '' })
+
+  function handleStartEdit(item: ShoppingListItem) {
+    setEditingItem(item)
+    setEditForm({
+      quantity: item.quantity !== null ? String(item.quantity) : '',
+      unit: item.unit ?? '',
+    })
+  }
+
+  function handleSaveEdit() {
+    if (!editingItem) return
+    const qty = editForm.quantity ? parseFloat(editForm.quantity) : null
+    const unit = editForm.unit.trim() || null
+    persist(items.map(i => i.id === editingItem.id ? { ...i, quantity: qty, unit } : i))
+    setEditingItem(null)
+  }
+
   const checkedCount = items.filter(i => i.checked).length
 
   return (
@@ -150,12 +169,14 @@ export default function ShoppingListPage() {
           <div
             key={item.id}
             className="list-item"
-            style={{ opacity: item.checked ? 0.5 : 1 }}
+            style={{ opacity: item.checked ? 0.5 : 1, cursor: 'pointer' }}
+            onClick={() => handleStartEdit(item)}
           >
             <input
               type="checkbox"
               checked={item.checked}
               onChange={() => toggle(item.id)}
+              onClick={e => e.stopPropagation()}
               style={{ width: 20, height: 20, cursor: 'pointer', flexShrink: 0 }}
             />
             <span
@@ -170,7 +191,7 @@ export default function ShoppingListPage() {
             <button
               className="btn btn-ghost"
               style={{ padding: '4px 8px', fontSize: 16, color: '#ef5350' }}
-              onClick={() => handleDelete(item.id)}
+              onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
             >
               ✕
             </button>
@@ -224,6 +245,37 @@ export default function ShoppingListPage() {
             <div className="form-actions">
               <button className="btn btn-ghost" onClick={() => setShowForm(false)}>{t('shopping.cancel')}</button>
               <button className="btn btn-primary" onClick={handleAddItem}>{t('shopping.addBtn')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingItem && (
+        <div className="modal-overlay" onClick={() => setEditingItem(null)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <h2>{editingItem.name}</h2>
+            <div className="form-row">
+              <div className="form-field">
+                <label>{t('shopping.quantityOptional')}</label>
+                <input
+                  type="number"
+                  value={editForm.quantity}
+                  onChange={e => setEditForm(f => ({ ...f, quantity: e.target.value }))}
+                  autoFocus
+                />
+              </div>
+              <div className="form-field">
+                <label>{t('shopping.unitOptional')}</label>
+                <input
+                  value={editForm.unit}
+                  onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))}
+                  placeholder={t('shopping.unitPlaceholder')}
+                />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-ghost" onClick={() => setEditingItem(null)}>{t('shopping.cancel')}</button>
+              <button className="btn btn-primary" onClick={handleSaveEdit}>{t('shopping.saveBtn')}</button>
             </div>
           </div>
         </div>
