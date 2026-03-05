@@ -204,7 +204,7 @@ const translations = {
     // Shuffle
     'shuffle.title': 'Middagsforslag',
     'shuffle.filterAny': 'Hvilken som helst',
-    'shuffle.filterReady': 'Bare oppskrifter jeg kan lage nå',
+    'shuffle.filterReady': 'Kun oppskrifter jeg kan lage nå',
     'shuffle.again': '🎲 Bland igjen',
     'shuffle.open': 'Åpne oppskrift',
     'shuffle.none': 'Ingen oppskrifter matcher dette filteret.',

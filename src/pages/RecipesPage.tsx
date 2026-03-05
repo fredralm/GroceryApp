@@ -653,14 +653,14 @@ export default function RecipesPage() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               <button
                 className={`btn ${!shuffleReadyOnly ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ flex: 1, fontSize: 13 }}
+                style={{ flex: 1, fontSize: 13, whiteSpace: 'normal' }}
                 onClick={() => { setShuffleReadyOnly(false); pickRandom(false) }}
               >
                 {t('shuffle.filterAny')}
               </button>
               <button
                 className={`btn ${shuffleReadyOnly ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ flex: 1, fontSize: 13 }}
+                style={{ flex: 1, fontSize: 13, whiteSpace: 'normal' }}
                 onClick={() => { setShuffleReadyOnly(true); pickRandom(true) }}
               >
                 {t('shuffle.filterReady')}
